@@ -5,9 +5,9 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL ?? "google/gemini-2.0-flash-exp:free";
 const MAX_RETRIES = Number(process.env.OPENROUTER_MAX_RETRIES ?? "2");
 const BASE_RETRY_DELAY_MS = Number(process.env.OPENROUTER_RETRY_DELAY_MS ?? "1500");
-const MIN_REQUEST_INTERVAL_MS = Number(process.env.OPENROUTER_MIN_INTERVAL_MS ?? "6000");
-const RATE_LIMIT_COOLDOWN_MS = Number(process.env.OPENROUTER_RATE_LIMIT_COOLDOWN_MS ?? "15000");
-const MAX_QUEUE_SIZE = Number(process.env.OPENROUTER_MAX_QUEUE ?? "4");
+const MIN_REQUEST_INTERVAL_MS = Number(process.env.OPENROUTER_MIN_INTERVAL_MS ?? "10000");
+const RATE_LIMIT_COOLDOWN_MS = Number(process.env.OPENROUTER_RATE_LIMIT_COOLDOWN_MS ?? "25000");
+const MAX_QUEUE_SIZE = Number(process.env.OPENROUTER_MAX_QUEUE ?? "8");
 
 let lastOpenRouterRequestAt = 0;
 let requestQueue: Promise<void> = Promise.resolve();
@@ -105,7 +105,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const userKey = request.headers.get("x-openrouter-key");
+    const apiKey = userKey || process.env.OPENROUTER_API_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !apiKey;
 
     if (useMock) {
@@ -117,65 +118,75 @@ export async function POST(request: Request) {
       
       let mockContent = "";
 
-      if (sysPrompt.includes("Technical Analysis Agent")) {
+      if (sysPrompt.includes("technical analysis expert")) {
         mockContent = JSON.stringify({
           trend: "bullish",
-          signal: "buy",
-          confidence: 85,
-          indicators: {
-            rsi: 65,
-            mac: "bullish_crossover",
-            movingAverages: "price_above_sma200"
-          },
-          support: 145.50,
-          resistance: 155.00,
-          analysis: "Mock technical analysis suggests strong bullish momentum with price above key moving averages."
+          trendStrength: "strong",
+          signals: ["Golden Cross", "RSI Oversold"],
+          support: [145.50, 142.00],
+          resistance: [155.00, 160.00],
+          recommendation: "BUY",
+          confidence: 0.85,
+          reasoning: "Mock technical analysis suggests strong bullish momentum with price above key moving averages.",
+          score: 8
         });
-      } else if (sysPrompt.includes("Fundamental Analysis Agent")) {
+      } else if (sysPrompt.includes("CFA charterholder")) {
         mockContent = JSON.stringify({
-          health: "strong",
+          metrics: { peRatio: 15.5, pbRatio: 2.1, debtToEquity: 0.5, roe: 0.18, profitMargin: 0.12 },
+          sectorComparison: { peSectorAvg: 18.0, peRelative: "undervalued" },
           valuation: "undervalued",
-          growth: "high",
-          profitability: "excellent",
-          score: 88,
-          analysis: "Mock fundamental analysis indicates solid financial health with strong revenue growth and healthy margins."
+          growthPotential: "high",
+          strengths: ["Strong revenue growth", "Healthy margins"],
+          weaknesses: ["High competition"],
+          recommendation: "BUY",
+          confidence: 0.8,
+          reasoning: "Solid fundamentals with undervaluation relative to sector.",
+          score: 8
         });
-      } else if (sysPrompt.includes("Sentiment Analysis Agent")) {
+      } else if (sysPrompt.includes("financial news sentiment")) {
         mockContent = JSON.stringify({
-          sentiment: "positive",
-          score: 0.75,
-          keywords: ["growth", "earnings", "innovation"],
-          sources_summary: "News sentiment is generally positive following recent product announcements."
+          overallSentiment: "positive",
+          sentimentScore: 0.75,
+          keyThemes: ["Growth", "Innovation"],
+          risks: ["Regulatory changes"],
+          catalysts: ["Product launch"],
+          marketMood: "optimistic",
+          newsCount: 10,
+          positiveCount: 7,
+          negativeCount: 1,
+          neutralCount: 2,
+          reasoning: "News sentiment is generally positive following recent product announcements.",
+          score: 8
         });
-      } else if (sysPrompt.includes("Risk Manager Agent")) {
+      } else if (sysPrompt.includes("disciplined risk manager")) {
         mockContent = JSON.stringify({
-          riskLevel: "moderate",
-          maxDrawdown: 12.5,
-          volatility: "medium",
-          sharpeRatio: 1.8,
-          recommendation: "allocate_with_caution",
-          stopLoss: 142.00,
-          takeProfit: 165.00
+          riskScore: 4.5,
+          riskLevel: "medium",
+          volatility: 0.025,
+          beta: 1.1,
+          maxDrawdownEstimate: "12.5%",
+          recommendedPositionSize: "5%",
+          stopLossLevel: 142.00,
+          keyRisks: ["Market volatility", "Sector rotation"],
+          mitigationStrategies: ["Diversify", "Use stop loss"],
+          reasoning: "Moderate risk profile with acceptable volatility.",
+          score: 6
         });
-      } else if (sysPrompt.includes("Report Generator Agent")) {
-        mockContent = `
-# MarketMind Analysis Report
-
-## Executive Summary
-This is a **MOCK REPORT** generated for demonstration purposes. The analysis indicates a positive outlook based on simulated data.
-
-## Technical Outlook
-Bullish trend observed with key indicators flashing buy signals.
-
-## Fundamental Health
-Strong balance sheet and consistent revenue growth support the bullish thesis.
-
-## Risk Assessment
-Moderate risk level. Recommended stop loss at $142.00.
-
-## Conclusion
-**BUY** recommendation with a target of $165.00.
-        `;
+      } else if (sysPrompt.includes("synthesize findings")) {
+        mockContent = JSON.stringify({
+          finalRecommendation: "BUY",
+          overallConfidence: 0.85,
+          compositeScore: 8.2,
+          executiveSummary: "This is a **MOCK REPORT** generated for demonstration purposes. The analysis indicates a positive outlook based on simulated data.",
+          agentConsensus: {
+            agreement: "high",
+            conflictingAgents: [],
+            consensus: "BUY"
+          },
+          keyInsights: ["Strong technical momentum", "Solid fundamentals", "Positive sentiment"],
+          actionItems: ["Enter long position", "Set stop loss at 142.00"],
+          fullReport: "# MarketMind Analysis Report\n\n## Executive Summary\nThis is a **MOCK REPORT** generated for demonstration purposes. The analysis indicates a positive outlook based on simulated data.\n\n## Technical Outlook\nBullish trend observed with key indicators flashing buy signals.\n\n## Fundamental Health\nStrong balance sheet and consistent revenue growth support the bullish thesis.\n\n## Risk Assessment\nModerate risk level. Recommended stop loss at $142.00.\n\n## Conclusion\n**BUY** recommendation with a target of $165.00."
+        });
       } else {
         mockContent = JSON.stringify({
           analysis: "Generic mock response for unknown agent.",

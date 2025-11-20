@@ -16,21 +16,35 @@ export class MarketDataAgent extends BaseAgent<string, MarketDataPayload> {
   async execute(symbol: string): Promise<MarketDataPayload> {
     this.updateStatus("working");
     await this.think(`Collecting price, fundamentals, and news for ${symbol}`);
+    
+    // Retrieve keys from localStorage if available
+    let headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("marketmind.api_keys");
+      if (stored) {
+        try {
+          const keys = JSON.parse(stored);
+          if (keys.alphaVantageKey) headers["x-alpha-key"] = keys.alphaVantageKey;
+          if (keys.braveKey) headers["x-brave-key"] = keys.braveKey;
+        } catch {}
+      }
+    }
+
     try {
       const [priceRes, fundamentalsRes, newsRes] = await Promise.all([
         fetchWithRetry("/api/market-data/price", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ symbol }),
         }),
         fetchWithRetry("/api/market-data/fundamentals", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ symbol }),
         }),
         fetchWithRetry("/api/market-data/news", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ symbol, days: 7 }),
         }),
       ]);

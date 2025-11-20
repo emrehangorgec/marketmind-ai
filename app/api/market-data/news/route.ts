@@ -54,7 +54,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.BRAVE_SEARCH_KEY;
+    const userKey = request.headers.get("x-brave-key");
+    const apiKey = userKey || process.env.BRAVE_SEARCH_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !apiKey;
 
     if (useMock) {

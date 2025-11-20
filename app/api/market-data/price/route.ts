@@ -26,7 +26,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const alphaKey = process.env.ALPHA_VANTAGE_KEY;
+    const userKey = request.headers.get("x-alpha-key");
+    const alphaKey = userKey || process.env.ALPHA_VANTAGE_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !alphaKey;
 
     if (useMock) {
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
           previousClose: basePrice - change,
           priceChange: change,
           priceChangePercent: (change / basePrice) * 100,
-          history: Array.from({ length: 30 }).map((_, i) => {
+          historicalPrices: Array.from({ length: 30 }).map((_, i) => {
             const date = new Date();
             date.setDate(date.getDate() - i);
             const dailyVol = (Math.sin(i + seed) * 5);

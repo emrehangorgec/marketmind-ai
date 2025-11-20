@@ -15,7 +15,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.ALPHA_VANTAGE_KEY;
+    const userKey = request.headers.get("x-alpha-key");
+    const apiKey = userKey || process.env.ALPHA_VANTAGE_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !apiKey;
 
     if (useMock) {

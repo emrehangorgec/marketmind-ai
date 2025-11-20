@@ -43,10 +43,23 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
   }
 
   protected async callLLM(userPrompt: string, maxTokens = 500) {
-    await this.think("Consulting GPT-4o-mini for deeper reasoning...");
+    await this.think("Consulting AI model for deeper reasoning...");
+    
+    // Retrieve keys from localStorage if available (client-side only)
+    let headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("marketmind.api_keys");
+      if (stored) {
+        try {
+          const keys = JSON.parse(stored);
+          if (keys.openRouterKey) headers["x-openrouter-key"] = keys.openRouterKey;
+        } catch {}
+      }
+    }
+
     const response = await fetch("/api/llm", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         systemPrompt: this.systemPrompt,
         messages: [

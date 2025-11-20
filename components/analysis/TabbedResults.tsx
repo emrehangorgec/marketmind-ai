@@ -39,7 +39,7 @@ export function TabbedResults({ state, record }: TabbedResultsProps) {
             <ScoreCard label="Technical" score={technical?.score} />
             <ScoreCard label="Fundamental" score={fundamental?.score} />
             <ScoreCard label="Sentiment" score={sentiment?.score} />
-            <ScoreCard label="Risk (lower is better)" score={risk?.score} />
+            <ScoreCard label="Risk (lower is better)" score={risk?.riskScore} invertColor />
           </div>
         );
       case "Technical":
