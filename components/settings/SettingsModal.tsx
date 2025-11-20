@@ -58,9 +58,22 @@ export function SettingsModal() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-center">
-            <p className="text-sm text-white/60">
-              No API keys required. The application now uses Yahoo Finance for market data and news.
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-white">
+              <Key className="h-4 w-4 text-emerald-400" />
+              OpenAI API Key
+            </label>
+            <input
+              type="password"
+              value={formData.openaiApiKey || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, openaiApiKey: e.target.value })
+              }
+              placeholder="sk-..."
+              className="w-full rounded-lg border border-white/10 bg-black/50 px-4 py-2 text-sm text-white placeholder-white/20 focus:border-emerald-500 focus:outline-none"
+            />
+            <p className="text-xs text-white/40">
+              Optional. If not provided, the application will use the default server configuration.
             </p>
           </div>
         </div>

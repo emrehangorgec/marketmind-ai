@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 export interface UserSettings {
-  // No keys needed for now
+  openaiApiKey?: string;
 }
 
 const SETTINGS_KEY = "marketmind.api_keys";

@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const articles = (result.news ?? []).map((item) => ({
       title: item.title,
       source: item.publisher,
-      publishedAt: item.providerPublishTime ? new Date(item.providerPublishTime * 1000).toISOString() : new Date().toISOString(),
+      publishedAt: item.providerPublishTime ? new Date(item.providerPublishTime).toISOString() : new Date().toISOString(),
       url: item.link,
     }));
 

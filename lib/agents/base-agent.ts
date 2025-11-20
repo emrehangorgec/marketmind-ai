@@ -48,7 +48,20 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
     
     // Retrieve keys from localStorage if available (client-side only)
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    // Legacy key retrieval removed as we switched to Yahoo Finance
+    
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem("marketmind.api_keys");
+      if (stored) {
+        try {
+          const settings = JSON.parse(stored);
+          if (settings.openaiApiKey) {
+            headers["x-openai-api-key"] = settings.openaiApiKey;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
 
 
     const response = await fetch("/api/llm", {

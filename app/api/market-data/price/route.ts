@@ -24,8 +24,8 @@ export async function POST(request: Request) {
 
     // Fetch quote and historical data in parallel
     const [quote, chartResult] = await Promise.all([
-      yahooFinance.quote(symbol),
-      yahooFinance.chart(symbol, {
+      yahooFinance.quote(symbol as string),
+      yahooFinance.chart(symbol as string, {
         period1: "2023-01-01", 
         interval: "1d",
       }),

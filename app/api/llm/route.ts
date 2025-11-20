@@ -75,7 +75,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const userApiKey = request.headers.get("x-openai-api-key");
+    const apiKey = userApiKey || process.env.OPENAI_API_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !apiKey;
 
     if (useMock) {
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
           success: false,
           error: {
             code: "MISSING_API_KEY",
-            message: "OPENROUTER_API_KEY is not configured.",
+            message: "OpenAI API Key is not configured.",
             recoverable: false,
           },
         },
