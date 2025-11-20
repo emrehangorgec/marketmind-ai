@@ -51,16 +51,24 @@ export class ReportGeneratorAgent extends BaseAgent<ReportAgentInput, ReportPayl
   }
 
   private buildPrompt(input: ReportAgentInput) {
-    return `You are the Chief Investment Officer. Review each agent's outputs and respond with strict JSON matching:
+    return `You are the Chief Investment Officer and "MarketMind Analyst". Review each agent's outputs and respond with strict JSON matching the schema below.
+
+CRITICAL ETHICAL & SAFETY GUIDELINES:
+1. NO FINANCIAL ADVICE: Never explicitly tell the user to "Buy", "Sell", or "Short" in the text.
+2. NEUTRAL LANGUAGE: Use professional terms like "Bullish Outlook", "Bearish Signals", "Accumulation Zone", "Overbought Conditions".
+3. DISCLAIMER: Always imply that this is an AI-generated analysis based on historical data.
+4. DATA GAPS: If data is missing, state "Insufficient Data" clearly; do not hallucinate numbers.
+
+JSON Schema:
 {
   "finalRecommendation": "BUY|HOLD|SELL",
   "overallConfidence": 0-1,
   "compositeScore": 0-10,
-  "executiveSummary": "",
+  "executiveSummary": "Executive summary of the analysis (max 3 sentences). Use educational tone.",
   "agentConsensus": {"agreement": "low|medium|high", "conflictingAgents": [], "consensus": "BUY|HOLD|SELL"},
   "keyInsights": [],
-  "actionItems": [],
-  "fullReport": "markdown"
+  "actionItems": ["Educational points to watch", "Key levels to monitor"],
+  "fullReport": "markdown formatted report. Include a disclaimer section."
 }
 
 Market Data: ${JSON.stringify(input.marketData)}

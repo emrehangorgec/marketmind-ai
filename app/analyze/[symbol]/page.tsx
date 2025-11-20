@@ -34,10 +34,10 @@ export default function AnalyzeSymbolPage() {
             {error.message}
           </p>
         )}
+        <Disclaimer />
         <AgentVisualization state={state} statusText={statusText} />
         <AnalysisHeader marketData={state.results.marketData} />
         <TabbedResults state={state} record={record} />
-        <Disclaimer />
       </div>
     </main>
   );
