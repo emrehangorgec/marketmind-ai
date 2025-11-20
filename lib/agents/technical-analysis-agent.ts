@@ -1,4 +1,5 @@
 import { BaseAgent } from "@/lib/agents/base-agent";
+import { cleanAndParseJSON } from "@/lib/utils/json";
 import {
   MarketDataPayload,
   TechnicalAnalysisPayload,
@@ -18,12 +19,23 @@ export class TechnicalAnalysisAgent extends BaseAgent<
   TechnicalAnalysisPayload
 > {
   constructor() {
-    super("technical", SYSTEM_PROMPT);
+    // Using GPT-4o-mini for cost-effective precision
+    super("technical", SYSTEM_PROMPT, "gpt-4o-mini");
   }
 
   async execute(input: MarketDataPayload): Promise<TechnicalAnalysisPayload> {
     this.updateStatus("working");
     await this.think("Crunching indicators for technical outlook");
+    
+    if (input.historicalPrices.length < 20) {
+       // Not enough data for most indicators
+       const fallback = this.buildFallback(input);
+       this.result = fallback;
+       this.updateStatus("completed");
+       this.emit("result", fallback);
+       return fallback;
+    }
+
     try {
       const indicators = this.buildIndicators(input);
       const prompt = this.buildPrompt(input.symbol, input.currentPrice, indicators, input);
@@ -105,11 +117,8 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 
   private async safeCallLLM(prompt: string) {
     try {
-      const text = await this.callLLM(prompt, 500);
-      return JSON.parse(text) as Omit<
-        TechnicalAnalysisPayload,
-        "indicators"
-      >;
+      const text = await this.callLLM(prompt, 1000);
+      return cleanAndParseJSON<Omit<TechnicalAnalysisPayload, "indicators">>(text);
     } catch (error) {
       throw new Error((error as Error).message ?? "LLM parsing error");
     }

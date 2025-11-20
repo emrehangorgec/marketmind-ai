@@ -1,4 +1,5 @@
 import { BaseAgent } from "@/lib/agents/base-agent";
+import { cleanAndParseJSON } from "@/lib/utils/json";
 import {
   AgentError,
   MarketDataPayload,
@@ -13,7 +14,8 @@ export class SentimentAnalysisAgent extends BaseAgent<
   SentimentAnalysisPayload
 > {
   constructor() {
-    super("sentiment", SYSTEM_PROMPT);
+    // GPT-4o-mini is excellent at text understanding and sentiment
+    super("sentiment", SYSTEM_PROMPT, "gpt-4o-mini");
   }
 
   async execute(input: MarketDataPayload): Promise<SentimentAnalysisPayload> {
@@ -21,8 +23,8 @@ export class SentimentAnalysisAgent extends BaseAgent<
     await this.think("Reviewing latest news for sentiment signals");
     try {
       const prompt = this.buildPrompt(input.symbol, input.news);
-      const raw = await this.callLLM(prompt, 400);
-      const parsed = JSON.parse(raw) as SentimentAnalysisPayload;
+      const raw = await this.callLLM(prompt, 1000);
+      const parsed = cleanAndParseJSON<SentimentAnalysisPayload>(raw);
       this.result = parsed;
       this.updateStatus("completed");
       this.emit("result", parsed);

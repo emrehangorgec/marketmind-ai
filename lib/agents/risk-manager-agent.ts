@@ -18,7 +18,8 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
   constructor() {
     super(
       "risk",
-      "You are a disciplined risk manager. Quantify downside scenarios and recommend defensive actions."
+      "You are a disciplined risk manager. Quantify downside scenarios and recommend defensive actions.",
+      "gpt-4o-mini" // Stick to GPT-4o-mini for math/logic heavy tasks
     );
   }
 
@@ -26,11 +27,21 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
     this.updateStatus("working");
     await this.think("Evaluating volatility, drawdowns, and concentration risk");
     try {
+      if (input.marketData.historicalPrices.length < 2) {
+        throw new Error("Insufficient historical data for risk analysis");
+      }
+
       const volatility = calculateVolatility(input.marketData.historicalPrices);
       const maxDrawdown = calculateMaxDrawdown(input.marketData.historicalPrices);
       const sentimentDrag =
         input.sentiment.overallSentiment === "negative" ? 0.1 : 0;
-      const riskScore = Math.min(10, (volatility * 10 + maxDrawdown / 2 + sentimentDrag * 10));
+      
+      // Adjusted formula to be less sensitive to drawdown
+      // Volatility is ~0.2-0.5 (20-50%), MaxDrawdown is ~10-50 (10-50%)
+      // Old formula: volatility * 10 + maxDrawdown / 2
+      // New formula: volatility * 8 + maxDrawdown / 10
+      const riskScore = Math.min(10, (volatility * 8 + maxDrawdown / 10 + sentimentDrag * 5));
+      
       const riskLevel = riskScore > 7 ? "high" : riskScore > 4 ? "medium" : "low";
       const stopLossLevel =
         input.technical.support[0] ?? input.marketData.currentPrice * 0.9;
@@ -61,6 +72,7 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
       this.emit("result", payload);
       return payload;
     } catch (error) {
+      const fallback = this.buildFallback(input);
       const agentError: AgentError = {
         code: "RISK_ERROR",
         message: (error as Error)?.message ?? "Unable to compute risk metrics",
@@ -68,7 +80,24 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
         agentName: this.name,
       };
       this.handleError(agentError);
-      throw agentError;
+      this.result = fallback;
+      return fallback;
     }
+  }
+
+  private buildFallback(input: RiskAgentInput): RiskAnalysisPayload {
+    return {
+      riskScore: 5,
+      riskLevel: "medium",
+      volatility: 0,
+      beta: input.marketData.fundamentals.beta ?? 1,
+      maxDrawdownEstimate: "N/A",
+      recommendedPositionSize: "5%",
+      stopLossLevel: input.marketData.currentPrice * 0.95,
+      keyRisks: ["Insufficient data for risk calculation"],
+      mitigationStrategies: ["Use standard position sizing", "Monitor closely"],
+      reasoning: "Fallback due to missing historical data",
+      score: 5,
+    };
   }
 }

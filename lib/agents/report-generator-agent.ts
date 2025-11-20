@@ -1,4 +1,5 @@
 import { BaseAgent } from "@/lib/agents/base-agent";
+import { cleanAndParseJSON } from "@/lib/utils/json";
 import {
   AgentError,
   FundamentalAnalysisPayload,
@@ -21,22 +22,28 @@ export class ReportGeneratorAgent extends BaseAgent<ReportAgentInput, ReportPayl
   constructor() {
     super(
       "reporter",
-      "You synthesize findings from every agent into a single executive report and recommendation."
+      "You synthesize findings from every agent into a single executive report and recommendation.",
+      "gpt-4o-mini" // GPT-4o-mini is great for long context synthesis
     );
   }
 
   async execute(input: ReportAgentInput): Promise<ReportPayload> {
     this.updateStatus("working");
     await this.think("Combining agent findings into final recommendation");
+    let text = "";
     try {
       const prompt = this.buildPrompt(input);
-      const text = await this.callLLM(prompt, 600);
-      const parsed = JSON.parse(text) as ReportPayload;
+      // Increased token limit to prevent JSON truncation
+      text = await this.callLLM(prompt, 2500);
+      const parsed = cleanAndParseJSON<ReportPayload>(text);
       this.result = parsed;
       this.updateStatus("completed");
       this.emit("result", parsed);
       return parsed;
     } catch (error) {
+      console.error("Report Generation Failed:", error);
+      if (text) console.error("Raw LLM Response:", text);
+      
       const fallback = this.buildFallback(input);
       const agentError: AgentError = {
         code: "REPORT_FALLBACK",

@@ -1,52 +1,22 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL ?? "google/gemini-2.0-flash-exp:free";
-const MAX_RETRIES = Number(process.env.OPENROUTER_MAX_RETRIES ?? "2");
-const BASE_RETRY_DELAY_MS = Number(process.env.OPENROUTER_RETRY_DELAY_MS ?? "1500");
-const MIN_REQUEST_INTERVAL_MS = Number(process.env.OPENROUTER_MIN_INTERVAL_MS ?? "10000");
-const RATE_LIMIT_COOLDOWN_MS = Number(process.env.OPENROUTER_RATE_LIMIT_COOLDOWN_MS ?? "25000");
-const MAX_QUEUE_SIZE = Number(process.env.OPENROUTER_MAX_QUEUE ?? "8");
+const DEFAULT_MODEL = "gpt-4o-mini";
 
-let lastOpenRouterRequestAt = 0;
-let requestQueue: Promise<void> = Promise.resolve();
-let queuedRequests = 0;
+// Simple in-memory token tracker (resets on server restart)
+let totalSessionTokens = {
+  prompt: 0,
+  completion: 0,
+  total: 0,
+  cost: 0
+};
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function enqueueRequest<T>(task: () => Promise<T>) {
-  if (queuedRequests >= MAX_QUEUE_SIZE) {
-    throw new ProviderError({
-      code: "LLM_QUEUE_FULL",
-      message: "Too many AI requests running. Please try again shortly.",
-      recoverable: true,
-      status: 429,
-    });
-  }
-
-  queuedRequests += 1;
-  const previous = requestQueue;
-  let release: (() => void) | undefined;
-  requestQueue = new Promise((resolve) => {
-    release = resolve;
-  });
-
-  await previous;
-
-  try {
-    const sinceLastCall = Date.now() - lastOpenRouterRequestAt;
-    if (sinceLastCall < MIN_REQUEST_INTERVAL_MS) {
-      await sleep(MIN_REQUEST_INTERVAL_MS - sinceLastCall);
-    }
-    const result = await task();
-    lastOpenRouterRequestAt = Date.now();
-    return result;
-  } finally {
-    queuedRequests -= 1;
-    release?.();
-  }
-}
+// GPT-4o-mini pricing (as of late 2024)
+const PRICING = {
+  input: 0.15 / 1_000_000, // $0.15 per 1M tokens
+  output: 0.60 / 1_000_000 // $0.60 per 1M tokens
+};
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -105,8 +75,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const userKey = request.headers.get("x-openrouter-key");
-    const apiKey = userKey || process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     const useMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !apiKey;
 
     if (useMock) {
@@ -227,21 +196,11 @@ export async function POST(request: Request) {
     }
 
     const requestId = randomUUID();
-    const referer = process.env.OPENROUTER_SITE_URL ?? "http://localhost:3000";
-    const title = process.env.OPENROUTER_APP_TITLE ?? "MarketMind";
     const model = overrideModel ?? DEFAULT_MODEL;
 
     const payloadMessages: ChatMessage[] = systemPrompt
       ? [{ role: "system", content: systemPrompt }, ...messages]
       : messages;
-
-    const payload: LLMRequestPayload = {
-      messages: payloadMessages,
-      maxTokens,
-      temperature,
-      model,
-      requestId,
-    };
 
     console.info("[LLM] request received", {
       requestId,
@@ -251,114 +210,57 @@ export async function POST(request: Request) {
       temperature,
     });
 
-    const data = await callOpenRouter(payload, { apiKey, referer, title });
-    return NextResponse.json({ success: true, data, meta: { requestId, provider: "openrouter" } });
+    const openai = new OpenAI({ apiKey });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Force GPT-4o-mini for now as requested
+      messages: payloadMessages as any,
+      max_tokens: maxTokens,
+      temperature: temperature,
+    });
+
+    const usage = completion.usage;
+    if (usage) {
+      const cost = (usage.prompt_tokens * PRICING.input) + (usage.completion_tokens * PRICING.output);
+      totalSessionTokens.prompt += usage.prompt_tokens;
+      totalSessionTokens.completion += usage.completion_tokens;
+      totalSessionTokens.total += usage.total_tokens;
+      totalSessionTokens.cost += cost;
+
+      console.info("[LLM] Usage Stats:", {
+        requestId,
+        prompt: usage.prompt_tokens,
+        completion: usage.completion_tokens,
+        total: usage.total_tokens,
+        cost: `$${cost.toFixed(6)}`,
+        sessionTotalCost: `$${totalSessionTokens.cost.toFixed(4)}`
+      });
+    }
+
+    // Transform OpenAI response to match previous format if needed, or just return it
+    // The frontend expects `data.choices[0].message.content`
+    return NextResponse.json({ 
+      success: true, 
+      data: completion, 
+      meta: { 
+        requestId, 
+        provider: "openai",
+        usage: usage,
+        cost: usage ? (usage.prompt_tokens * PRICING.input) + (usage.completion_tokens * PRICING.output) : 0
+      } 
+    });
+
   } catch (error) {
-    return createErrorResponse(error);
-  }
-}
-
-async function callOpenRouter(
-  { messages, maxTokens, temperature, model, requestId }: LLMRequestPayload,
-  {
-    apiKey,
-    referer,
-    title,
-  }: { apiKey: string; referer: string; title: string }
-) {
-  let attempt = 0;
-  const startedAt = Date.now();
-
-  while (true) {
-    const response = await enqueueRequest(async () => {
-      console.debug("[LLM] dispatching request", {
-        requestId,
-        model,
-        attempt,
-        queuedRequests,
-      });
-
-      return fetch(OPENROUTER_URL, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": referer,
-          "X-Title": title,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          max_tokens: maxTokens,
-          temperature,
-        }),
-      });
-    });
-
-    const payload = await response.json().catch(() => null);
-
-    if (response.ok) {
-      console.info("[LLM] success", {
-        requestId,
-        model,
-        durationMs: Date.now() - startedAt,
-        attempt,
-      });
-      return payload;
-    }
-
-    const status = response.status;
-    const message = payload?.error?.message ?? `OpenRouter request failed with status ${status}`;
-    console.warn("[LLM] provider error", {
-      requestId,
-      model,
-      attempt,
-      status,
-      durationMs: Date.now() - startedAt,
-      message,
-    });
-
-    if (status === 429 && attempt < MAX_RETRIES) {
-      attempt += 1;
-      await sleep(BASE_RETRY_DELAY_MS * attempt + RATE_LIMIT_COOLDOWN_MS);
-      continue;
-    }
-
-    throw new ProviderError({
-      code: status === 429 ? "RATE_LIMIT_EXCEEDED" : "OPENROUTER_ERROR",
-      message,
-      recoverable: status === 429,
-      status,
-    });
-  }
-}
-
-function createErrorResponse(error: unknown) {
-  if (error instanceof ProviderError) {
+    console.error("[LLM] unexpected failure", { error });
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: error.info.code,
-          message: error.info.message,
-          recoverable: error.info.recoverable,
-          provider: "openrouter",
+          code: "LLM_PROXY_ERROR",
+          message: (error as Error)?.message ?? "Unexpected error calling OpenAI",
+          recoverable: true,
         },
       },
-      { status: error.info.status }
+      { status: 500 }
     );
   }
-
-  console.error("[LLM] unexpected failure", { error });
-  return NextResponse.json(
-    {
-      success: false,
-      error: {
-        code: "LLM_PROXY_ERROR",
-        message: (error as Error)?.message ?? "Unexpected error calling OpenRouter",
-        recoverable: true,
-      },
-    },
-    { status: 500 }
-  );
 }

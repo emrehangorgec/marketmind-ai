@@ -3,19 +3,13 @@
 import { useState, useEffect } from "react";
 
 export interface UserSettings {
-  openRouterKey: string;
-  alphaVantageKey: string;
-  braveKey: string;
+  // No keys needed for now
 }
 
 const SETTINGS_KEY = "marketmind.api_keys";
 
 export function useSettings() {
-  const [settings, setSettings] = useState<UserSettings>({
-    openRouterKey: "",
-    alphaVantageKey: "",
-    braveKey: "",
-  });
+  const [settings, setSettings] = useState<UserSettings>({});
 
   useEffect(() => {
     const stored = localStorage.getItem(SETTINGS_KEY);

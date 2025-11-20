@@ -26,7 +26,8 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
 
   protected constructor(
     public readonly name: AgentName,
-    protected readonly systemPrompt: string
+    protected readonly systemPrompt: string,
+    protected readonly model?: string
   ) {
     super();
   }
@@ -46,16 +47,9 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
     await this.think("Consulting AI model for deeper reasoning...");
     
     // Retrieve keys from localStorage if available (client-side only)
-    let headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("marketmind.api_keys");
-      if (stored) {
-        try {
-          const keys = JSON.parse(stored);
-          if (keys.openRouterKey) headers["x-openrouter-key"] = keys.openRouterKey;
-        } catch {}
-      }
-    }
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Legacy key retrieval removed as we switched to Yahoo Finance
+
 
     const response = await fetch("/api/llm", {
       method: "POST",
@@ -69,6 +63,7 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
           },
         ],
         maxTokens,
+        model: this.model,
       }),
     });
 

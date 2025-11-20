@@ -1,4 +1,5 @@
 import { BaseAgent } from "@/lib/agents/base-agent";
+import { cleanAndParseJSON } from "@/lib/utils/json";
 import {
   AgentError,
   FundamentalsSnapshot,
@@ -13,7 +14,8 @@ export class FundamentalAnalysisAgent extends BaseAgent<
   FundamentalAnalysisPayload
 > {
   constructor() {
-    super("fundamental", SYSTEM_PROMPT);
+    // GPT-4o-mini is very capable for structured data analysis
+    super("fundamental", SYSTEM_PROMPT, "gpt-4o-mini");
   }
 
   async execute(input: MarketDataPayload): Promise<FundamentalAnalysisPayload> {
@@ -21,8 +23,8 @@ export class FundamentalAnalysisAgent extends BaseAgent<
     await this.think("Interpreting key financial ratios");
     try {
       const prompt = this.buildPrompt(input.symbol, input.fundamentals);
-      const raw = await this.callLLM(prompt, 500);
-      const parsed = JSON.parse(raw) as FundamentalAnalysisPayload;
+      const raw = await this.callLLM(prompt, 1000);
+      const parsed = cleanAndParseJSON<FundamentalAnalysisPayload>(raw);
       this.result = parsed;
       this.updateStatus("completed");
       this.emit("result", parsed);

@@ -89,9 +89,12 @@ export function calculateVolatility(prices: HistoricalPriceBar[]) {
 }
 
 export function calculateMaxDrawdown(prices: HistoricalPriceBar[]) {
+  // Ensure chronological order (Oldest to Newest) for correct drawdown calculation
+  const sortedPrices = [...prices].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   let peak = -Infinity;
   let maxDrawdown = 0;
-  prices.forEach((bar) => {
+  sortedPrices.forEach((bar) => {
     if (bar.close > peak) peak = bar.close;
     const drawdown = (bar.close - peak) / peak;
     if (drawdown < maxDrawdown) maxDrawdown = drawdown;

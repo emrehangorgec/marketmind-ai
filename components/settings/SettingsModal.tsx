@@ -58,58 +58,10 @@ export function SettingsModal() {
         </div>
 
         <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-white/60">
-              OpenRouter API Key (LLM)
-            </label>
-            <div className="relative">
-              <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
-              <input
-                type="password"
-                value={formData.openRouterKey}
-                onChange={(e) =>
-                  setFormData({ ...formData, openRouterKey: e.target.value })
-                }
-                placeholder="sk-or-..."
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-sm text-white placeholder-white/20 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-white/60">
-              Alpha Vantage Key (Market Data)
-            </label>
-            <div className="relative">
-              <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
-              <input
-                type="password"
-                value={formData.alphaVantageKey}
-                onChange={(e) =>
-                  setFormData({ ...formData, alphaVantageKey: e.target.value })
-                }
-                placeholder="Enter key..."
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-sm text-white placeholder-white/20 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-white/60">
-              Brave Search Key (News)
-            </label>
-            <div className="relative">
-              <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
-              <input
-                type="password"
-                value={formData.braveKey}
-                onChange={(e) =>
-                  setFormData({ ...formData, braveKey: e.target.value })
-                }
-                placeholder="Enter key..."
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-sm text-white placeholder-white/20 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
+          <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-center">
+            <p className="text-sm text-white/60">
+              No API keys required. The application now uses Yahoo Finance for market data and news.
+            </p>
           </div>
         </div>
 
