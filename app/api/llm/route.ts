@@ -1,8 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-
-const DEFAULT_MODEL = "gpt-4o-mini";
+import { LLMFactory } from "@/lib/llm/factory";
+import { LLMRequest, ChatMessage } from "@/lib/llm/types";
 
 // Simple in-memory token tracker (resets on server restart)
 let totalSessionTokens = {
@@ -11,44 +10,6 @@ let totalSessionTokens = {
   total: 0,
   cost: 0
 };
-
-// GPT-4o-mini pricing (as of late 2024)
-const PRICING = {
-  input: 0.15 / 1_000_000, // $0.15 per 1M tokens
-  output: 0.60 / 1_000_000 // $0.60 per 1M tokens
-};
-
-type ChatRole = "system" | "user" | "assistant";
-
-interface ChatMessage {
-  role: ChatRole;
-  content: string;
-}
-
-interface LLMRequestPayload {
-  messages: ChatMessage[];
-  maxTokens: number;
-  temperature: number;
-  model: string;
-  requestId: string;
-}
-
-interface ProviderErrorInfo {
-  code: string;
-  message: string;
-  recoverable: boolean;
-  status: number;
-}
-
-class ProviderError extends Error {
-  info: ProviderErrorInfo;
-
-  constructor(info: ProviderErrorInfo) {
-    super(info.message);
-    this.name = "ProviderError";
-    this.info = info;
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -182,82 +143,87 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "MISSING_API_KEY",
-            message: "OpenAI API Key is not configured.",
-            recoverable: false,
-          },
-        },
-        { status: 500 }
-      );
-    }
-
     const requestId = randomUUID();
-    const model = overrideModel ?? DEFAULT_MODEL;
-
+    
     const payloadMessages: ChatMessage[] = systemPrompt
       ? [{ role: "system", content: systemPrompt }, ...messages]
       : messages;
 
     console.info("[LLM] request received", {
       requestId,
-      model,
+      model: overrideModel,
       messageCount: messages.length,
       maxTokens,
       temperature,
     });
 
-    const openai = new OpenAI({ apiKey });
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Force GPT-4o-mini for now as requested
-      messages: payloadMessages as any,
-      max_tokens: maxTokens,
-      temperature: temperature,
-    });
+    // Use the Factory to get the provider (defaulting to OpenAI for now)
+    const provider = LLMFactory.getProvider("openai");
+    
+    const llmRequest: LLMRequest = {
+      messages: payloadMessages,
+      maxTokens,
+      temperature,
+      model: overrideModel,
+      requestId,
+      apiKey: apiKey || undefined
+    };
 
-    const usage = completion.usage;
-    if (usage) {
-      const cost = (usage.prompt_tokens * PRICING.input) + (usage.completion_tokens * PRICING.output);
-      totalSessionTokens.prompt += usage.prompt_tokens;
-      totalSessionTokens.completion += usage.completion_tokens;
-      totalSessionTokens.total += usage.total_tokens;
+    const response = await provider.generate(llmRequest);
+
+    if (response.usage) {
+      const cost = response.usage.cost || 0;
+      totalSessionTokens.prompt += response.usage.promptTokens;
+      totalSessionTokens.completion += response.usage.completionTokens;
+      totalSessionTokens.total += response.usage.totalTokens;
       totalSessionTokens.cost += cost;
 
       console.info("[LLM] Usage Stats:", {
         requestId,
-        prompt: usage.prompt_tokens,
-        completion: usage.completion_tokens,
-        total: usage.total_tokens,
+        prompt: response.usage.promptTokens,
+        completion: response.usage.completionTokens,
+        total: response.usage.totalTokens,
         cost: `$${cost.toFixed(6)}`,
         sessionTotalCost: `$${totalSessionTokens.cost.toFixed(4)}`
       });
     }
 
-    // Transform OpenAI response to match previous format if needed, or just return it
-    // The frontend expects `data.choices[0].message.content`
+    // Transform to match the expected frontend format (OpenAI-like structure)
     return NextResponse.json({ 
       success: true, 
-      data: completion, 
+      data: {
+        id: requestId,
+        model: response.model,
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: response.content
+            }
+          }
+        ],
+        usage: response.usage ? {
+          prompt_tokens: response.usage.promptTokens,
+          completion_tokens: response.usage.completionTokens,
+          total_tokens: response.usage.totalTokens
+        } : undefined
+      }, 
       meta: { 
         requestId, 
-        provider: "openai",
-        usage: usage,
-        cost: usage ? (usage.prompt_tokens * PRICING.input) + (usage.completion_tokens * PRICING.output) : 0
+        provider: response.provider,
+        usage: response.usage,
+        cost: response.usage?.cost || 0
       } 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("[LLM] unexpected failure", { error });
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "LLM_PROXY_ERROR",
-          message: (error as Error)?.message ?? "Unexpected error calling OpenAI",
+          code: error.code || "LLM_PROXY_ERROR",
+          message: error.message || "Unexpected error calling LLM Provider",
           recoverable: true,
         },
       },
