@@ -102,7 +102,7 @@ export function TabbedResults({ state, record }: TabbedResultsProps) {
         );
       case "Full Report":
         return (
-          <div className="prose prose-invert max-w-none">
+          <div className="report-content prose prose-invert max-w-none">
             <ReactMarkdown>{report?.fullReport ?? "Report unavailable."}</ReactMarkdown>
           </div>
         );

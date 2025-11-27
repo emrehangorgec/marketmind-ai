@@ -7,7 +7,7 @@ import {
   AnalysisRecord,
   AnalysisState,
 } from "@/lib/types/analysis";
-import { saveAnalysis } from "@/lib/utils/storage";
+import { saveAnalysis, getStoredAnalyses } from "@/lib/utils/storage";
 
 const DEFAULT_STATE: AnalysisState = {
   phase: "idle",
@@ -54,8 +54,23 @@ export function useFinancialAnalysis(symbol: string) {
   }, [symbol]);
 
   useEffect(() => {
-    analyze();
-  }, [analyze]);
+    // Check for existing analysis in storage
+    const storedAnalyses = getStoredAnalyses();
+    const existing = storedAnalyses.find((a) => a.symbol === symbol);
+
+    if (existing) {
+      setRecord(existing);
+      setState((prev) => ({
+        ...prev,
+        phase: "completed",
+        progress: 1,
+        results: existing.fullData,
+      }));
+    } else {
+      // Only run if no existing analysis found
+      analyze();
+    }
+  }, [symbol, analyze]);
 
   const statusText = useMemo(() => {
     switch (state.phase) {

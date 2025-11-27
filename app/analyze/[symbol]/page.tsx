@@ -3,11 +3,15 @@
 import { useParams } from "next/navigation";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { AgentVisualization } from "@/components/visualizations/AgentVisualization";
+import { useRouter } from "next/navigation";
 import { AnalysisHeader } from "@/components/analysis/AnalysisHeader";
 import { TabbedResults } from "@/components/analysis/TabbedResults";
 import { Disclaimer } from "@/components/common/Disclaimer";
+import { AuthButton } from "@/components/auth/AuthButton";
+import { SearchBar } from "@/components/SearchBar";
 
 export default function AnalyzeSymbolPage() {
+  const router = useRouter();
   const params = useParams<{ symbol: string }>();
   const symbol = (params.symbol ?? "AAPL").toUpperCase();
   const { state, record, error, statusText, isRunning, analyze } = useFinancialAnalysis(symbol);
@@ -15,6 +19,12 @@ export default function AnalyzeSymbolPage() {
   return (
     <main className="min-h-screen bg-[#05060b] px-4 py-8 text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <div className="flex flex-col-reverse justify-between gap-4 md:flex-row md:items-center">
+          <div className="w-full max-w-md">
+             <SearchBar onSubmit={(s) => router.push(`/analyze/${s}`)} defaultSymbol="" />
+          </div>
+          <AuthButton />
+        </div>
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
             <p className="text-sm uppercase tracking-[0.6em] text-emerald-300">Analysis Dashboard</p>

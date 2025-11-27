@@ -4,11 +4,15 @@ import { useRouter } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { RecentAnalyses } from "@/components/analysis/RecentAnalyses";
 import { Disclaimer } from "@/components/common/Disclaimer";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 export default function Home() {
   const router = useRouter();
   return (
     <main className="min-h-screen bg-[#05060b] px-6 py-12 text-white">
+      <div className="mx-auto mb-8 flex max-w-5xl justify-end">
+        <AuthButton />
+      </div>
       <section className="mx-auto max-w-5xl space-y-6">
         <p className="text-sm uppercase tracking-[0.6em] text-emerald-300">MarketMind</p>
         <h1 className="text-5xl font-semibold leading-tight">
