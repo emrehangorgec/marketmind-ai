@@ -3,12 +3,9 @@
 import { useRouter } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { RecentAnalyses } from "@/components/analysis/RecentAnalyses";
-import { Disclaimer } from "@/components/common/Disclaimer";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import Link from "next/link";
-import { DashboardDisclaimerModal } from "@/components/modals/DashboardDisclaimerModal";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -16,7 +13,6 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-[#05060b] px-6 py-12 text-white">
-      <DashboardDisclaimerModal />
       <div className="mx-auto mb-8 flex max-w-5xl justify-end gap-4 items-center">
         <AuthButton />
       </div>
@@ -31,7 +27,6 @@ export default function Dashboard() {
           {t.home.description}
         </p>
         <SearchBar onSubmit={(symbol) => router.push(`/analyze/${symbol}`)} />
-        <Disclaimer />
       </section>
       <section className="mx-auto mt-12 max-w-5xl space-y-4">
         <div className="flex items-center justify-between">

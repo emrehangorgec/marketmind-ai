@@ -13,6 +13,7 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { DashboardDisclaimerModal } from "@/components/modals/DashboardDisclaimerModal";
 
 export default function AnalyzeSymbolPage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function AnalyzeSymbolPage() {
 
   return (
     <main className="min-h-screen bg-[#05060b] px-4 py-8 text-white">
+      <DashboardDisclaimerModal />
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <div className="flex flex-col-reverse justify-between gap-4 md:flex-row md:items-center">
           <div className="flex items-center gap-4 w-full max-w-xl">
@@ -53,7 +55,7 @@ export default function AnalyzeSymbolPage() {
             type="button"
             onClick={analyze}
             disabled={isRunning}
-            className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {isRunning ? t.analyze.running : t.analyze.rerun}
           </button>

@@ -27,7 +27,7 @@ export function SearchBar({ defaultSymbol = "AAPL", onSubmit }: SearchBarProps) 
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-xl">
-      <div className="mt-2 flex gap-3">
+      <div className="mt-2 flex gap-3 items-start">
         <div className="flex-1">
           <input
             id="symbol"
@@ -55,7 +55,7 @@ export function SearchBar({ defaultSymbol = "AAPL", onSubmit }: SearchBarProps) 
         </div>
         <button
           type="submit"
-          className="rounded-xl bg-emerald-500 px-4 py-2 text-base font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
+          className="rounded-xl bg-emerald-500 px-6 py-3 text-lg font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 whitespace-nowrap"
         >
           {t.home.analyzeButton}
         </button>
