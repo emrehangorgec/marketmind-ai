@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MarketMind | Multi-Agent Investment Intelligence",
+  title: "MyMarketMind | Multi-Agent Investment Intelligence",
   description:
     "MarketMind orchestrates market data, technical and fundamental AI agents, sentiment, and risk for decisive investment calls.",
 };

@@ -22,6 +22,25 @@ export const translations = {
       searchPlaceholder: "Search symbol...",
       analyzeButton: "Analyze",
     },
+    landing: {
+      heroTitle: "AI-Powered Financial Intelligence",
+      heroSubtitle: "Harness the power of multi-agent AI to analyze markets, assess risks, and generate comprehensive financial reports.",
+      launchButton: "Launch MarketMind",
+      features: {
+        multiAgent: {
+          title: "Multi-Agent Architecture",
+          description: "Specialized AI agents working in concert for fundamental, technical, and sentiment analysis."
+        },
+        realTime: {
+          title: "Real-Time Data",
+          description: "Live market data integration for accurate and up-to-date financial insights."
+        },
+        risk: {
+          title: "Risk Management",
+          description: "Advanced risk assessment models to protect your portfolio and optimize returns."
+        }
+      }
+    },
     analyze: {
       dashboard: "ANALYSIS DASHBOARD",
       running: "Running analysis...",
@@ -115,6 +134,25 @@ export const translations = {
       viewDashboard: "Paneli görüntüle →",
       searchPlaceholder: "Sembol ara...",
       analyzeButton: "Analiz Et",
+    },
+    landing: {
+      heroTitle: "AI Destekli Finansal Asistan",
+      heroSubtitle: "Piyasaları analiz etmek, riskleri değerlendirmek ve kapsamlı finansal raporlar oluşturmak için çok ajanlı yapay zekânın gücünden yararlanın.",
+      launchButton: "MarketMind'ı Başlat",
+      features: {
+        multiAgent: {
+          title: "Çok Ajanlı Mimari",
+          description: "Temel, teknik ve duygu analizi için uyum içinde çalışan özelleşmiş yapay zekâ ajanları."
+        },
+        realTime: {
+          title: "Gerçek Zamanlı Veri",
+          description: "Doğru ve güncel finansal içgörüler için canlı piyasa verisi entegrasyonu."
+        },
+        risk: {
+          title: "Risk Yönetimi",
+          description: "Portföyünüzü korumak ve getirileri optimize etmek için gelişmiş risk değerlendirme modelleri."
+        }
+      }
     },
     analyze: {
       dashboard: "ANALİZ PANELİ",

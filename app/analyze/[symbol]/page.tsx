@@ -10,6 +10,9 @@ import { Disclaimer } from "@/components/common/Disclaimer";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { SearchBar } from "@/components/SearchBar";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 
 export default function AnalyzeSymbolPage() {
   const router = useRouter();
@@ -22,10 +25,24 @@ export default function AnalyzeSymbolPage() {
     <main className="min-h-screen bg-[#05060b] px-4 py-8 text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <div className="flex flex-col-reverse justify-between gap-4 md:flex-row md:items-center">
-          <div className="w-full max-w-md">
-             <SearchBar onSubmit={(s) => router.push(`/analyze/${s}`)} defaultSymbol="" />
+          <div className="flex items-center gap-4 w-full max-w-xl">
+            <Link 
+              href="/dashboard" 
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              title="Back to Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5 text-white/70" />
+            </Link>
+            <div className="flex-1">
+              <SearchBar onSubmit={(s) => router.push(`/analyze/${s}`)} defaultSymbol="" />
+            </div>
           </div>
-          <AuthButton />
+          <div className="flex items-center gap-4">
+             <Link href="/" className="hidden md:block text-xs uppercase tracking-[0.2em] text-emerald-300 hover:text-emerald-400 transition-colors">
+              MyMarketMind
+            </Link>
+            <AuthButton />
+          </div>
         </div>
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
