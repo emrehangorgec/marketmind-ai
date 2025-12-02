@@ -3,17 +3,22 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { usePathname } from "next/navigation";
 
 export function TermsAcceptanceModal() {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useLanguage();
+  const pathname = usePathname();
 
   useEffect(() => {
+    // Don't show on landing page
+    if (pathname === "/") return;
+
     const accepted = localStorage.getItem("marketmind.termsAccepted");
     if (!accepted) {
       setIsOpen(true);
     }
-  }, []);
+  }, [pathname]);
 
   const handleAccept = () => {
     localStorage.setItem("marketmind.termsAccepted", "true");

@@ -46,6 +46,9 @@ export const translations = {
       running: "Running analysis...",
       rerun: "Re-run analysis",
       searchPlaceholder: "Search symbol...",
+      exportPDF: "Export PDF",
+      generatedAt: "Generated at",
+      sources: "Sources",
     },
     auth: {
       whySignIn: "Why sign in?",
@@ -159,6 +162,9 @@ export const translations = {
       running: "Analiz yapılıyor...",
       rerun: "Analizi tekrarla",
       searchPlaceholder: "Sembol ara...",
+      exportPDF: "PDF İndir",
+      generatedAt: "Oluşturulma Tarihi",
+      sources: "Kaynaklar",
     },
     auth: {
       whySignIn: "Neden giriş yapmalıyım?",
