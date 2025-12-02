@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { translations } from "@/lib/i18n/translations";
-import { ArrowRight, BarChart2, Shield, Cpu } from "lucide-react";
+import { ArrowRight, BarChart2, Shield, Cpu, LogIn } from "lucide-react";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { SignInModal } from "@/components/modals/SignInModal";
 
 interface LandingPageProps {
   onLaunch: () => void;
@@ -13,7 +15,18 @@ interface LandingPageProps {
 
 export default function LandingPage({ onLaunch }: LandingPageProps) {
   const { language } = useLanguage();
+  const { status } = useSession();
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const t = translations[language].landing;
+  const common = translations[language].common;
+
+  const handleAction = () => {
+    if (status === "authenticated") {
+      onLaunch();
+    } else {
+      setIsSignInModalOpen(true);
+    }
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -48,6 +61,11 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
         <LanguageSwitcher />
       </div>
 
+      <SignInModal 
+        isOpen={isSignInModalOpen} 
+        onClose={() => setIsSignInModalOpen(false)} 
+      />
+
       <motion.div
         className="max-w-5xl w-full z-10"
         variants={containerVariants}
@@ -78,13 +96,24 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
           
           <motion.button
             variants={itemVariants}
-            onClick={onLaunch}
+            onClick={handleAction}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="group relative inline-flex items-center gap-2 px-8 py-4 bg-white text-black rounded-full font-semibold text-lg transition-all hover:bg-gray-100"
           >
-            {t.launchButton}
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            {status === "loading" ? (
+              common.loading
+            ) : status === "authenticated" ? (
+              <>
+                {t.launchButton}
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </>
+            ) : (
+              <>
+                {common.signIn}
+                <LogIn className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </motion.button>
         </div>
 
