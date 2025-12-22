@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SearchBar } from "@/components/SearchBar";
+import { MarketExplorer } from "@/components/dashboard/MarketExplorer";
 import { RecentAnalyses } from "@/components/analysis/RecentAnalyses";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { useLanguage } from "@/components/providers/LanguageProvider";
@@ -26,7 +26,10 @@ export default function Dashboard() {
         <p className="text-lg text-white/70">
           {t.home.description}
         </p>
-        <SearchBar onSubmit={(symbol) => router.push(`/analyze/${symbol}`)} />
+        
+        <div className="pt-8">
+          <MarketExplorer />
+        </div>
       </section>
       <section className="mx-auto mt-12 max-w-5xl space-y-4">
         <div className="flex items-center justify-between">

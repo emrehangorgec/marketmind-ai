@@ -8,6 +8,8 @@ import { translations } from "@/lib/i18n/translations";
 import { ArrowRight, BarChart2, Shield, Cpu, LogIn } from "lucide-react";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { SignInModal } from "@/components/modals/SignInModal";
+import { AnimatedBackground } from "./AnimatedBackground";
+import { SpotlightCard } from "./SpotlightCard";
 
 interface LandingPageProps {
   onLaunch: () => void;
@@ -51,11 +53,7 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[100px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[100px]" />
-      </div>
+      <AnimatedBackground />
 
       <div className="absolute top-6 right-6 z-20">
         <LanguageSwitcher />
@@ -74,15 +72,17 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
       >
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <motion.div variants={itemVariants} className="mb-4 inline-block">
-            <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium">
+          <motion.div variants={itemVariants} className="mb-4 inline-block relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full opacity-75 group-hover:opacity-100 blur transition duration-200"></div>
+            <span className="relative px-4 py-1.5 rounded-full bg-black border border-white/10 text-blue-400 text-sm font-medium flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"/>
               MyMarketMind
             </span>
           </motion.div>
           
           <motion.h1
             variants={itemVariants}
-            className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400"
+            className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/50 drop-shadow-2xl"
           >
             {t.heroTitle}
           </motion.h1>
@@ -148,13 +148,12 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
 
 function FeatureCard({ icon, title, description, variants }: any) {
   return (
-    <motion.div
-      variants={variants}
-      className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors"
-    >
-      <div className="mb-4 p-3 rounded-xl bg-white/5 w-fit">{icon}</div>
-      <h3 className="text-xl font-semibold mb-2 text-white">{title}</h3>
-      <p className="text-gray-400 leading-relaxed">{description}</p>
+    <motion.div variants={variants} className="h-full">
+      <SpotlightCard className="h-full p-6 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors">
+        <div className="mb-4 p-3 rounded-xl bg-white/5 w-fit border border-white/10 shadow-lg shadow-blue-500/5">{icon}</div>
+        <h3 className="text-xl font-semibold mb-2 text-white">{title}</h3>
+        <p className="text-gray-400 leading-relaxed">{description}</p>
+      </SpotlightCard>
     </motion.div>
   );
 }
