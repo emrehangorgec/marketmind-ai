@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 import { translations } from "@/lib/i18n/translations";
 import { ArrowRight, BarChart2, Shield, Cpu, LogIn } from "lucide-react";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { Logo } from "@/components/common/Logo";
 import { SignInModal } from "@/components/modals/SignInModal";
 import { AnimatedBackground } from "./AnimatedBackground";
 import { SpotlightCard } from "./SpotlightCard";
@@ -54,6 +55,10 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <AnimatedBackground />
+
+      <div className="absolute top-6 left-6 z-20">
+        <Logo />
+      </div>
 
       <div className="absolute top-6 right-6 z-20">
         <LanguageSwitcher />

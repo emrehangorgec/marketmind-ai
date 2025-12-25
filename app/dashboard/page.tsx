@@ -5,6 +5,7 @@ import { MarketExplorer } from "@/components/dashboard/MarketExplorer";
 import { RecentAnalyses } from "@/components/analysis/RecentAnalyses";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { Logo } from "@/components/common/Logo";
 import Link from "next/link";
 
 export default function Dashboard() {
@@ -17,8 +18,8 @@ export default function Dashboard() {
         <AuthButton />
       </div>
       <section className="mx-auto max-w-5xl space-y-6">
-        <Link href="/" className="text-sm uppercase tracking-[0.6em] text-emerald-300 hover:text-emerald-400 transition-colors cursor-pointer">
-          MyMarketMind
+        <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+          <Logo />
         </Link>
         <h1 className="text-5xl font-semibold leading-tight">
           {t.home.title}
