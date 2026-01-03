@@ -1,11 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import YahooFinance from "yahoo-finance2";
-
-const yahooFinance = new YahooFinance();
-
-// Suppress the "yahooSurvey" notice which can cause issues in some environments
-// yahooFinance.suppressNotices(['yahooSurvey']);
+import { MarketDataService } from "@/lib/services/market-data";
 
 export async function POST(request: Request) {
   try {
@@ -20,30 +15,9 @@ export async function POST(request: Request) {
       );
     }
 
-    console.info("[FUNDAMENTALS] fetching data (Yahoo Finance)", { requestId, symbol });
+    console.info("[FUNDAMENTALS] fetching data (MarketDataService)", { requestId, symbol });
 
-    const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["summaryDetail", "defaultKeyStatistics", "financialData", "assetProfile"],
-    });
-
-    if (!summary) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "DATA_UNAVAILABLE",
-            message: "Unable to load fundamentals for symbol via Yahoo Finance",
-            recoverable: true,
-          },
-        },
-        { status: 404 }
-      );
-    }
-
-    const stats = summary.defaultKeyStatistics;
-    const finance = summary.financialData;
-    const profile = summary.assetProfile;
-    const detail = summary.summaryDetail;
+    const data = await MarketDataService.getFundamentals(symbol);
 
     console.info("[FUNDAMENTALS] success", {
       requestId,
@@ -54,17 +28,17 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: {
-        marketCap: detail?.marketCap ?? 0,
-        peRatio: detail?.trailingPE ?? detail?.forwardPE ?? 0,
-        eps: stats?.trailingEps ?? stats?.forwardEps ?? 0,
-        pbRatio: stats?.priceToBook ?? 0,
-        dividendYield: (detail?.dividendYield ?? 0) * 100,
-        revenuePerShare: finance?.revenuePerShare ?? 0,
-        profitMargin: finance?.profitMargins ?? 0,
-        sector: profile?.sector ?? "Unknown",
-        roe: finance?.returnOnEquity ?? 0,
-        debtToEquity: finance?.debtToEquity ?? 0,
-        beta: detail?.beta ?? 0,
+        marketCap: data.marketCap ?? 0,
+        peRatio: data.peRatio ?? 0,
+        eps: data.eps ?? 0,
+        pbRatio: data.pbRatio ?? 0,
+        dividendYield: (data.dividendYield ?? 0) * 100,
+        revenuePerShare: data.revenuePerShare ?? 0,
+        profitMargin: data.profitMargin ?? 0,
+        sector: data.sector ?? "Unknown",
+        roe: data.roe ?? 0,
+        debtToEquity: data.debtToEquity ?? 0,
+        beta: data.beta ?? 0,
       },
     });
 

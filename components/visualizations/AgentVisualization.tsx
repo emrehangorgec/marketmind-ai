@@ -54,7 +54,7 @@ export function AgentVisualization({ state, statusText }: AgentVisualizationProp
                   : completed
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
                   : isActive
-                  ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-100"
+                  ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-100 animate-pulse ring-1 ring-cyan-500/50"
                   : "border-white/10 bg-white/5 text-white/70"
               }`}
             >
