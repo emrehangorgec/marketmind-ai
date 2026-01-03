@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { Logo } from "@/components/common/Logo";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -9,7 +10,10 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/10 bg-[#05060b] py-8 text-center text-sm text-white/40">
-      <div className="mx-auto max-w-5xl px-6">
+      <div className="mx-auto max-w-5xl px-6 flex flex-col items-center">
+        <div className="mb-6">
+          <Logo className="w-6 h-6" />
+        </div>
         <div className="mb-4 flex justify-center gap-6">
           <Link href="/terms" className="hover:text-white transition">
             Terms of Service

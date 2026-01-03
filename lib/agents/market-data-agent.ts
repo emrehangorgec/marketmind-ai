@@ -18,11 +18,10 @@ export class MarketDataAgent extends BaseAgent<string, MarketDataPayload> {
     await this.think(`Collecting price, fundamentals, and news for ${symbol}`);
     
     try {
-      const [priceData, fundamentals, news] = await Promise.all([
-        MarketDataService.getPrice(symbol),
-        MarketDataService.getFundamentals(symbol),
-        MarketDataService.getNews(symbol)
-      ]);
+      // Serialize calls to avoid rate limits
+      const priceData = await MarketDataService.getPrice(symbol);
+      const fundamentals = await MarketDataService.getFundamentals(symbol);
+      const news = await MarketDataService.getNews(symbol);
 
       const payload: MarketDataPayload = {
         symbol,

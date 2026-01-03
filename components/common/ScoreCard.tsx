@@ -5,7 +5,7 @@ interface ScoreCardProps {
 }
 
 export function ScoreCard({ label, score, invertColor = false }: ScoreCardProps) {
-  if (score === undefined) return null;
+  if (score === undefined || score === null) return null;
   
   let variant = "";
   if (invertColor) {

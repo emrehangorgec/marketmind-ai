@@ -203,7 +203,7 @@ export const translations = {
       vsPreviousClose: "önceki kapanışa göre",
     },
     visualization: {
-      executionPipeline: "Yürütme Hattı",
+      executionPipeline: "Workflow",
       overallProgress: "Genel ilerleme",
       error: "Hata",
       completed: "Tamamlandı",
