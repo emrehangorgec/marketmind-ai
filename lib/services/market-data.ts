@@ -85,6 +85,7 @@ export class MarketDataService {
       const timeSeries = avData?.["Time Series (Daily)"];
       if (timeSeries) {
         historical = Object.entries(timeSeries)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map(([date, values]: [string, any]) => ({
             date: date,
             open: parseFloat(values["1. open"]),
@@ -149,6 +150,7 @@ export class MarketDataService {
       to 
     });
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headlines: NewsHeadline[] = (result || []).slice(0, 10).map((n: any) => ({
       title: n.headline,
       source: n.source,

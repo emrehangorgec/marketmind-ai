@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
           <h2>3. Data Storage</h2>
           <p>
-            Your API keys (e.g., OpenAI API Key) are stored locally in your browser's LocalStorage and are never sent to our servers.
+            Your API keys (e.g., OpenAI API Key) are stored locally in your browser&apos;s LocalStorage and are never sent to our servers.
           </p>
 
           <h2>4. Third-Party Services</h2>

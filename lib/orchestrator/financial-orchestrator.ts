@@ -119,6 +119,7 @@ export class FinancialOrchestrator extends EventEmitter<OrchestratorEvents> {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private processGraphEvent(event: any) {
     const nodeName = Object.keys(event)[0];
     const data = event[nodeName];
@@ -130,6 +131,7 @@ export class FinancialOrchestrator extends EventEmitter<OrchestratorEvents> {
 
     // Map GraphState to AnalysisState results
     const { report, errors, ...rest } = data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resultsUpdate: any = { ...rest };
     
     if (report) {

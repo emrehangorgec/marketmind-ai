@@ -151,6 +151,7 @@ export default function LandingPage({ onLaunch }: LandingPageProps) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function FeatureCard({ icon, title, description, variants }: any) {
   return (
     <motion.div variants={variants} className="h-full">

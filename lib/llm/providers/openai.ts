@@ -51,6 +51,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         } : undefined
       };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("[OpenAIProvider] Error:", error);
       

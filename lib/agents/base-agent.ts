@@ -1,5 +1,6 @@
 import EventEmitter from "eventemitter3";
 import { LLMFactory } from "@/lib/llm/factory";
+import { GuardrailsService } from "@/lib/guardrails";
 import {
   AgentError,
   AgentName,
@@ -45,6 +46,18 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
   }
 
   protected async callLLM(userPrompt: string, maxTokens = 500) {
+    // --- 1. Guardrails: Input Validation ---
+    await this.think("Checking input against safety guardrails...");
+    const inputGuard = await GuardrailsService.validateInput(userPrompt);
+    if (!inputGuard.isValid) {
+      throw {
+        code: "VALIDATION_ERROR",
+        message: inputGuard.reason || "Input validation failed",
+        recoverable: false,
+        agentName: this.name
+      } satisfies AgentError;
+    }
+
     await this.think("Consulting AI model for deeper reasoning...");
     
     // Server-side execution
@@ -59,7 +72,10 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
           maxTokens,
           model: this.model,
         });
-        return response.content;
+        
+        const rawContent = response.content;
+        const outputGuard = await GuardrailsService.validateOutput(rawContent);
+        return outputGuard.modifiedContent || rawContent;
       } catch (error) {
         const err = error as Error;
         throw {
@@ -124,7 +140,12 @@ export abstract class BaseAgent<TInput, TResult> extends EventEmitter<{
       payload?.choices?.[0]?.message?.content ??
       payload?.content?.[0]?.text ??
       "";
-    return text.trim();
+    
+    const rawText = text.trim();
+
+    // --- 2. Guardrails: Output Validation ---
+    const outputGuard = await GuardrailsService.validateOutput(rawText);
+    return outputGuard.modifiedContent || rawText;
   }
 
   protected handleError(error: AgentError) {

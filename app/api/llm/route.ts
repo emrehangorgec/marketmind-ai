@@ -4,7 +4,7 @@ import { LLMFactory } from "@/lib/llm/factory";
 import { LLMRequest, ChatMessage } from "@/lib/llm/types";
 
 // Simple in-memory token tracker (resets on server restart)
-let totalSessionTokens = {
+const totalSessionTokens = {
   prompt: 0,
   completion: 0,
   total: 0,
@@ -216,6 +216,7 @@ export async function POST(request: Request) {
       } 
     });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("[LLM] unexpected failure", { error });
     return NextResponse.json(

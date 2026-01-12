@@ -116,7 +116,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </form>
               
               <p className="text-center text-xs text-white/40">
-                We'll send you a magic link for a password-free sign in.
+                We&apos;ll send you a magic link for a password-free sign in.
               </p>
             </div>
           </motion.div>

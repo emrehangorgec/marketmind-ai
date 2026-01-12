@@ -34,7 +34,7 @@ export const MagicLinkEmail = ({ url, host }: MagicLinkEmailProps) => (
           </Button>
         </Section>
         <Text style={text}>
-          If you didn't request this email, you can safely ignore it.
+          If you didn&apos;t request this email, you can safely ignore it.
         </Text>
         <Hr style={hr} />
         <Text style={footer}>
