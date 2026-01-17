@@ -84,6 +84,15 @@ The application uses a **Graph-based Orchestrator** pattern where the \Financial
     NEXTAUTH_URL="http://localhost:3000"
     ```
 
+    Optional: enable LangSmith tracing
+
+    ```env
+    LANGCHAIN_TRACING_V2=true
+    LANGCHAIN_API_KEY="your_langsmith_api_key"
+    LANGCHAIN_PROJECT="marketmind-ai"
+    LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+    ```
+
 4. **Initialize Database**
 
     ```bash

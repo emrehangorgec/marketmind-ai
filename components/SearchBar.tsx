@@ -7,11 +7,21 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 interface SearchBarProps {
   defaultSymbol?: string;
   onSubmit: (symbol: string) => void;
+  variant?: "light" | "dark";
+  submitLabel?: string;
+  onValueChange?: (value: string) => void;
 }
 
-export function SearchBar({ defaultSymbol = "", onSubmit }: SearchBarProps) {
+export function SearchBar({
+  defaultSymbol = "",
+  onSubmit,
+  variant = "dark",
+  submitLabel,
+  onValueChange,
+}: SearchBarProps) {
   const [value, setValue] = useState(defaultSymbol);
   const { t } = useLanguage();
+  const isLight = variant === "light";
 
   const suggestions = useMemo(() => {
     if (!value) return [];
@@ -39,26 +49,50 @@ export function SearchBar({ defaultSymbol = "", onSubmit }: SearchBarProps) {
         <div className="flex-1 relative">
           <input
             id="symbol"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-semibold uppercase text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+            className={`w-full rounded-xl px-4 py-3 text-lg font-semibold uppercase focus:outline-none ${
+              isLight
+                ? "border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-400"
+                : "border border-white/10 bg-white/5 text-white placeholder:text-white/40 focus:border-white/40"
+            }`}
             placeholder={t.home.searchPlaceholder || "Search symbol (e.g. AAPL, THYAO.IS, BTC-USD)"}
             value={value}
-            onChange={(event) => setValue(event.target.value.toUpperCase())}
+            onChange={(event) => {
+              const nextValue = event.target.value.toUpperCase();
+              setValue(nextValue);
+              onValueChange?.(nextValue);
+            }}
             autoComplete="off"
           />
           {suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1b23] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl">
+            <div
+              className={`absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-50 shadow-xl ${
+                isLight
+                  ? "bg-white border border-slate-200"
+                  : "bg-[#1a1b23] border border-white/10"
+              }`}
+            >
               {suggestions.slice(0, 5).map((symbol) => (
                 <button
                   key={symbol}
                   type="button"
-                  className="w-full px-4 py-3 text-left hover:bg-white/5 flex items-center justify-between group transition-colors"
+                  className={`w-full px-4 py-3 text-left flex items-center justify-between group transition-colors ${
+                    isLight ? "hover:bg-slate-50" : "hover:bg-white/5"
+                  }`}
                   onClick={() => {
                     setValue(symbol);
                     onSubmit(symbol);
                   }}
                 >
-                  <span className="font-bold text-white">{symbol}</span>
-                  <span className="text-sm text-white/50 group-hover:text-white/80">{getSymbolName(symbol)}</span>
+                  <span className={`font-bold ${isLight ? "text-slate-900" : "text-white"}`}>{symbol}</span>
+                  <span
+                    className={`text-sm ${
+                      isLight
+                        ? "text-slate-500 group-hover:text-slate-700"
+                        : "text-white/50 group-hover:text-white/80"
+                    }`}
+                  >
+                    {getSymbolName(symbol)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -66,9 +100,13 @@ export function SearchBar({ defaultSymbol = "", onSubmit }: SearchBarProps) {
         </div>
         <button
           type="submit"
-          className="rounded-xl bg-emerald-500 px-6 py-3 text-lg font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 whitespace-nowrap"
+          className={`rounded-xl px-6 py-3 text-lg font-bold whitespace-nowrap transition ${
+            isLight
+              ? "bg-slate-900 text-white hover:bg-slate-800"
+              : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:bg-emerald-400"
+          }`}
         >
-          {t.home.analyzeButton}
+          {submitLabel || t.home.analyzeButton}
         </button>
       </div>
     </form>

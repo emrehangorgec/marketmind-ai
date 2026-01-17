@@ -9,6 +9,7 @@ export interface GuardrailResult {
 }
 
 export class GuardrailsService {
+  private static MAX_INPUT_CHARS = 12000;
   /**
    * Input Guardrails: Validates user input before it reaches the core Agent/LLM.
    * Checks for:
@@ -18,7 +19,7 @@ export class GuardrailsService {
    */
   static async validateInput(prompt: string): Promise<GuardrailResult> {
     // 1. Basic Length Check
-    if (prompt.length > 2000) {
+    if (prompt.length > GuardrailsService.MAX_INPUT_CHARS) {
       return { isValid: false, reason: "Input too long. Please shorten your query." };
     }
 

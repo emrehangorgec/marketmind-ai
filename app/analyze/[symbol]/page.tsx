@@ -12,7 +12,6 @@ import { SearchBar } from "@/components/SearchBar";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { DashboardDisclaimerModal } from "@/components/modals/DashboardDisclaimerModal";
 
 export default function AnalyzeSymbolPage() {
@@ -65,6 +64,12 @@ export default function AnalyzeSymbolPage() {
             {error.message}
           </p>
         )}
+        {state.results.marketData &&
+          (state.results.marketData.historicalPrices?.length ?? 0) < 2 && (
+            <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+              Historical price data is limited for this symbol. Risk metrics may be approximated.
+            </p>
+          )}
         <Disclaimer />
         <AgentVisualization state={state} statusText={statusText} />
         <AnalysisHeader marketData={state.results.marketData} />

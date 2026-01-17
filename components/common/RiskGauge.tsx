@@ -12,7 +12,8 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export function RiskGauge({ score = 5, level = "medium" }: RiskGaugeProps) {
   const { t } = useLanguage();
-  const normalized = Math.min(Math.max(score, 0), 10) / 10;
+  const safeScore = typeof score === "number" ? score : 5;
+  const normalized = Math.min(Math.max(safeScore, 0), 10) / 10;
   const dash = normalized * CIRCUMFERENCE;
   const color = level === "low" ? "#34d399" : level === "medium" ? "#fbbf24" : "#f87171";
   const textColor =
@@ -51,7 +52,7 @@ export function RiskGauge({ score = 5, level = "medium" }: RiskGaugeProps) {
       </svg>
       <p className="text-sm uppercase tracking-[0.3em] text-white/60">{t.riskGauge.risk}</p>
       <p className={`text-3xl font-bold ${textColor}`}>
-        {score.toFixed(1)}
+        {safeScore.toFixed(1)}
       </p>
       <p className="text-sm text-white/70">{getRiskLabel()}</p>
     </div>

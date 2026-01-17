@@ -3,9 +3,15 @@ import React from 'react';
 interface LogoProps {
   className?: string;
   showText?: boolean;
+  variant?: "light" | "dark";
 }
 
-export const Logo: React.FC<LogoProps> = ({ className = "w-8 h-8", showText = true }) => {
+export const Logo: React.FC<LogoProps> = ({
+  className = "w-8 h-8",
+  showText = true,
+  variant = "dark",
+}) => {
+  const isLight = variant === "light";
   return (
     <div className="flex items-center gap-2">
       <div className={`relative flex items-center justify-center ${className}`}>
@@ -13,7 +19,7 @@ export const Logo: React.FC<LogoProps> = ({ className = "w-8 h-8", showText = tr
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full text-emerald-500"
+          className={`w-full h-full ${isLight ? "text-emerald-600" : "text-emerald-500"}`}
         >
           {/* Hexagon Background */}
           <path
@@ -57,7 +63,11 @@ export const Logo: React.FC<LogoProps> = ({ className = "w-8 h-8", showText = tr
       
       {showText && (
         <div className="flex flex-col">
-          <span className="text-lg font-bold tracking-tight text-white leading-none">
+          <span
+            className={`text-lg font-bold tracking-tight leading-none ${
+              isLight ? "text-slate-900" : "text-white"
+            }`}
+          >
             MyMarketMind
           </span>
         </div>

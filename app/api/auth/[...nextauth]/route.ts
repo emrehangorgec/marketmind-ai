@@ -26,7 +26,7 @@ const handler = NextAuth({
         },
       },
       from: process.env.EMAIL_FROM,
-      sendVerificationRequest: async ({ identifier, url, provider }) => {
+      sendVerificationRequest: async ({ identifier, url }) => {
         const { host } = new URL(url);
         try {
           await resend.emails.send({

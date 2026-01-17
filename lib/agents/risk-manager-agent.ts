@@ -27,12 +27,35 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
     this.updateStatus("working");
     await this.think("Evaluating volatility, drawdowns, and concentration risk");
     try {
-      if (input.marketData.historicalPrices.length < 2) {
+      const hasHistory = input.marketData.historicalPrices.length >= 2;
+      const syntheticHistory = !hasHistory && input.marketData.currentPrice && input.marketData.previousClose
+        ? [
+            {
+              date: new Date().toISOString().split("T")[0],
+              close: input.marketData.currentPrice,
+              open: input.marketData.currentPrice,
+              high: input.marketData.currentPrice,
+              low: input.marketData.currentPrice,
+              volume: 0,
+            },
+            {
+              date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              close: input.marketData.previousClose,
+              open: input.marketData.previousClose,
+              high: input.marketData.previousClose,
+              low: input.marketData.previousClose,
+              volume: 0,
+            },
+          ]
+        : [];
+
+      const priceSeries = hasHistory ? input.marketData.historicalPrices : syntheticHistory;
+      if (priceSeries.length < 2) {
         throw new Error("Insufficient historical data for risk analysis");
       }
 
-      const volatility = calculateVolatility(input.marketData.historicalPrices);
-      const maxDrawdown = calculateMaxDrawdown(input.marketData.historicalPrices);
+      const volatility = calculateVolatility(priceSeries);
+      const maxDrawdown = calculateMaxDrawdown(priceSeries);
       const sentimentDrag =
         input.sentiment.overallSentiment === "negative" ? 0.1 : 0;
       
@@ -63,7 +86,9 @@ export class RiskManagerAgent extends BaseAgent<RiskAgentInput, RiskAnalysisPayl
           "Diversify across sectors",
           "Use trailing stop-loss",
         ],
-        reasoning: "Risk quantified using realized volatility, drawdown, and sentiment",
+        reasoning: hasHistory
+          ? "Risk quantified using realized volatility, drawdown, and sentiment"
+          : "Risk approximated using limited price history and sentiment",
         score: +(10 - riskScore).toFixed(1),
       };
 

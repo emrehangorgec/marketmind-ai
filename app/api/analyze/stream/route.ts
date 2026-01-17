@@ -15,20 +15,50 @@ export async function POST(req: NextRequest) {
     
     const stream = new ReadableStream({
       async start(controller) {
+        let closed = false;
+        let iterator: AsyncIterator<unknown> | null = null;
+
+        const safeClose = () => {
+          if (!closed) {
+            closed = true;
+            controller.close();
+          }
+        };
+
+        const safeCancel = async () => {
+          if (iterator?.return) {
+            try {
+              await iterator.return();
+            } catch {
+              // ignore
+            }
+          }
+        };
+
+        req.signal.addEventListener("abort", () => {
+          safeCancel();
+          safeClose();
+        });
+
         try {
           const graphStream = await analysisGraph.stream({ symbol });
-          
-          for await (const event of graphStream) {
-            // event is { [nodeName]: Partial<GraphState> }
-            const chunk = JSON.stringify(event) + "\n";
+          iterator = graphStream[Symbol.asyncIterator]();
+
+          while (true) {
+            const { value, done } = await iterator.next();
+            if (closed || done) break;
+            const chunk = JSON.stringify(value) + "\n";
             controller.enqueue(encoder.encode(chunk));
           }
-          controller.close();
+          safeClose();
         } catch (error) {
           console.error("Graph execution error:", error);
-          const errChunk = JSON.stringify({ error: (error as Error).message }) + "\n";
-          controller.enqueue(encoder.encode(errChunk));
-          controller.close();
+          if (!closed) {
+            const errChunk = JSON.stringify({ error: (error as Error).message }) + "\n";
+            controller.enqueue(encoder.encode(errChunk));
+          }
+          await safeCancel();
+          safeClose();
         }
       }
     });
@@ -40,7 +70,8 @@ export async function POST(req: NextRequest) {
         "Connection": "keep-alive",
       },
     });
-  } catch (e) {
+  } catch (error) {
+    console.error("Analyze stream error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

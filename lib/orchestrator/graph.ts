@@ -1,6 +1,5 @@
 import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
 import { 
-  AnalysisState, 
   MarketDataPayload, 
   TechnicalAnalysisPayload, 
   FundamentalAnalysisPayload, 

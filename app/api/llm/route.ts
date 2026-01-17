@@ -44,7 +44,6 @@ export async function POST(request: Request) {
       console.info("[LLM] Using MOCK response");
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const lastMessage = messages[messages.length - 1]?.content || "";
       const sysPrompt = systemPrompt || "";
       
       let mockContent = "";

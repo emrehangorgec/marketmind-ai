@@ -1,17 +1,34 @@
 import { HistoricalPriceBar, NewsHeadline, FundamentalsSnapshot } from "@/lib/types/analysis";
+import YahooFinance from "yahoo-finance2";
+
+const yahooFinance = new YahooFinance({
+  suppressNotices: ["ripHistorical"],
+});
 
 const FINNHUB_API_KEY = process.env.FINNHUB_KEY;
 const ALPHA_VANTAGE_KEY = process.env.ALPHA_VANTAGE_KEY;
+const ALPHA_VANTAGE_PREMIUM = process.env.ALPHA_VANTAGE_PREMIUM === "true";
 const BASE_URL = "https://finnhub.io/api/v1";
 const AV_BASE_URL = "https://www.alphavantage.co/query";
 
-// Simple in-memory cache for news
+// Simple in-memory cache for news and history
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes
+const HISTORY_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
+const YAHOO_COOLDOWN_MS = 1000 * 60; // 60 seconds
 type CachedNews = {
   expiresAt: number;
   data: NewsHeadline[];
 };
 const newsCache = new Map<string, CachedNews>();
+type CachedHistory = {
+  expiresAt: number;
+  data: HistoricalPriceBar[];
+};
+const historyCache = new Map<string, CachedHistory>();
+const yahooCooldownBySymbol = new Map<string, number>();
+let yahooGlobalCooldownUntil = 0;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function fetchFinnhub(endpoint: string, params: Record<string, string> = {}) {
   if (!FINNHUB_API_KEY) {
@@ -61,6 +78,38 @@ async function fetchAlphaVantage(params: Record<string, string>) {
 }
 
 export class MarketDataService {
+  private static getAlphaVantageSymbol(symbol: string): string {
+    if (symbol.endsWith(".IS")) return symbol.replace(".IS", "");
+    if (symbol.endsWith("-USD")) return symbol.replace("-USD", "");
+    return symbol;
+  }
+
+  private static async fetchAlphaVantageCrypto(symbol: string): Promise<HistoricalPriceBar[]> {
+    if (!symbol.endsWith("-USD")) return [];
+    const cryptoSymbol = symbol.replace("-USD", "");
+    const avData = await fetchAlphaVantage({
+      function: "DIGITAL_CURRENCY_DAILY",
+      symbol: cryptoSymbol,
+      market: "USD",
+    });
+
+    const timeSeries = avData?.["Time Series (Digital Currency Daily)"];
+    if (!timeSeries) return [];
+
+    return Object.entries(timeSeries)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map(([date, values]: [string, any]) => ({
+        date,
+        open: parseFloat(values["1a. open (USD)"] ?? values["1. open"]),
+        high: parseFloat(values["2a. high (USD)"] ?? values["2. high"]),
+        low: parseFloat(values["3a. low (USD)"] ?? values["3. low"]),
+        close: parseFloat(values["4a. close (USD)"] ?? values["4. close"]),
+        volume: parseFloat(values["5. volume"] ?? 0),
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 200);
+  }
+
   static async getPrice(symbol: string): Promise<{ 
     price: number; 
     previousClose: number;
@@ -76,15 +125,32 @@ export class MarketDataService {
     
     try {
       // Try Alpha Vantage for history since Finnhub candles are restricted
-      const avData = await fetchAlphaVantage({
+      const avSymbol = this.getAlphaVantageSymbol(symbol);
+      let avData = await fetchAlphaVantage({
         function: "TIME_SERIES_DAILY",
-        symbol: symbol,
-        outputsize: "full" // Need full to get enough data for MA200
+        symbol: avSymbol,
+        outputsize: "compact" // Free-tier (last 100 points)
       });
-      
-      const timeSeries = avData?.["Time Series (Daily)"];
-      if (timeSeries) {
-        historical = Object.entries(timeSeries)
+
+      let finalSeries = avData?.["Time Series (Daily)"];
+      if (!finalSeries && (avData?.Note || avData?.Information)) {
+        console.warn("Alpha Vantage throttled or unavailable", {
+          note: avData?.Note,
+          info: avData?.Information,
+        });
+      }
+
+      if (!finalSeries && ALPHA_VANTAGE_PREMIUM) {
+        avData = await fetchAlphaVantage({
+          function: "TIME_SERIES_DAILY",
+          symbol: avSymbol,
+          outputsize: "full" // Premium only
+        });
+        finalSeries = avData?.["Time Series (Daily)"];
+      }
+
+      if (finalSeries) {
+        historical = Object.entries(finalSeries)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map(([date, values]: [string, any]) => ({
             date: date,
@@ -101,10 +167,139 @@ export class MarketDataService {
       console.error("Failed to fetch history from Alpha Vantage", e);
     }
 
-    const price = quote?.c || 0;
-    const previousClose = quote?.pc || 0;
-    const change = quote?.d || 0;
-    const changePercent = quote?.dp || 0;
+    // Alpha Vantage crypto fallback (DIGITAL_CURRENCY_DAILY)
+    if (!historical.length) {
+      try {
+        historical = await this.fetchAlphaVantageCrypto(symbol);
+      } catch (e) {
+        console.error("Failed to fetch crypto history from Alpha Vantage", e);
+      }
+    }
+
+    // Finnhub candle fallback (if available)
+    if (historical.length < 20) {
+      try {
+        const to = Math.floor(Date.now() / 1000);
+        const from = Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1000) / 1000);
+        const candles = await fetchFinnhub("/stock/candle", {
+          symbol,
+          resolution: "D",
+          from: String(from),
+          to: String(to),
+        });
+
+        if (candles?.s === "ok" && Array.isArray(candles?.t)) {
+          const mapped = candles.t
+            .map((t: number, idx: number) => ({
+              date: new Date(t * 1000).toISOString().split("T")[0],
+              open: candles.o?.[idx] ?? 0,
+              high: candles.h?.[idx] ?? 0,
+              low: candles.l?.[idx] ?? 0,
+              close: candles.c?.[idx] ?? 0,
+              volume: candles.v?.[idx] ?? 0,
+            }))
+            .filter((bar: HistoricalPriceBar) => bar.close)
+            .sort((a: HistoricalPriceBar, b: HistoricalPriceBar) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 200);
+
+          if (mapped.length > historical.length) {
+            historical = mapped;
+          }
+        }
+      } catch (e) {
+        console.warn("Finnhub candles unavailable", e);
+      }
+    }
+
+    // Yahoo Finance fallback for history (supports stocks, BIST, crypto)
+    if (historical.length < 20) {
+      try {
+        const cacheKey = symbol.toUpperCase();
+        const now = Date.now();
+        const symbolCooldownUntil = yahooCooldownBySymbol.get(cacheKey) ?? 0;
+        if (now < yahooGlobalCooldownUntil || now < symbolCooldownUntil) {
+          const cachedHistory = historyCache.get(cacheKey);
+          if (cachedHistory && now < cachedHistory.expiresAt) {
+            if (cachedHistory.data.length > historical.length) {
+              historical = cachedHistory.data;
+            }
+          }
+        } else {
+        const cachedHistory = historyCache.get(cacheKey);
+        if (cachedHistory && Date.now() < cachedHistory.expiresAt) {
+          if (cachedHistory.data.length > historical.length) {
+            historical = cachedHistory.data;
+          }
+        } else {
+          const period2 = new Date();
+          const period1 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+
+          let lastError: unknown = null;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              const yfChart = await yahooFinance.chart(symbol, {
+                period1,
+                period2,
+                interval: "1d",
+                return: "array",
+              });
+
+              const mapped = (yfChart?.quotes ?? [])
+                .filter((bar) => bar.close != null)
+                .map((bar) => ({
+                  date: bar.date.toISOString().split("T")[0],
+                  open: bar.open ?? bar.close ?? 0,
+                  high: bar.high ?? bar.close ?? 0,
+                  low: bar.low ?? bar.close ?? 0,
+                  close: bar.close ?? 0,
+                  volume: bar.volume ?? 0,
+                }))
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 200);
+
+              historyCache.set(cacheKey, {
+                expiresAt: Date.now() + HISTORY_CACHE_TTL_MS,
+                data: mapped,
+              });
+
+              if (mapped.length > historical.length) {
+                historical = mapped;
+              }
+              lastError = null;
+              break;
+            } catch (e) {
+              lastError = e;
+              const err = e as { statusCode?: number };
+              if (err?.statusCode === 429 && attempt === 0) {
+                const cooldownUntil = Date.now() + YAHOO_COOLDOWN_MS;
+                yahooCooldownBySymbol.set(cacheKey, cooldownUntil);
+                yahooGlobalCooldownUntil = cooldownUntil;
+                historyCache.set(cacheKey, {
+                  expiresAt: Date.now() + 1000 * 15,
+                  data: [],
+                });
+                await sleep(1250);
+                continue;
+              }
+              break;
+            }
+          }
+
+          if (lastError) {
+            console.error("Failed to fetch history from Yahoo Finance", lastError);
+          }
+        }
+        }
+      } catch (e) {
+        console.error("Failed to fetch history from Yahoo Finance", e);
+      }
+    }
+
+    const lastClose = historical[0]?.close ?? 0;
+    const price = quote?.c || lastClose || 0;
+    const previousClose = quote?.pc || historical[1]?.close || 0;
+    const change = quote?.d || (price && previousClose ? price - previousClose : 0);
+    const changePercent = quote?.dp || (previousClose ? (change / previousClose) * 100 : 0);
 
     return { price, previousClose, change, changePercent, historical };
   }

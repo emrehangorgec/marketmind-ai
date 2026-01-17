@@ -130,7 +130,7 @@ export class FinancialOrchestrator extends EventEmitter<OrchestratorEvents> {
     }
 
     // Map GraphState to AnalysisState results
-    const { report, errors, ...rest } = data;
+    const { report, ...rest } = data;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resultsUpdate: any = { ...rest };
     

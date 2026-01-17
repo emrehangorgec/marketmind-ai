@@ -19,6 +19,8 @@ const DEFAULT_STATE: AnalysisState = {
 
 export function useFinancialAnalysis(symbol: string) {
   const orchestratorRef = useRef<FinancialOrchestrator | null>(null);
+  const autoRunRef = useRef<string | null>(null);
+  const runningRef = useRef(false);
   const [state, setState] = useState<AnalysisState>(DEFAULT_STATE);
   const [record, setRecord] = useState<AnalysisRecord | null>(null);
   const [error, setError] = useState<AgentError | null>(null);
@@ -37,6 +39,8 @@ export function useFinancialAnalysis(symbol: string) {
 
   const analyze = useCallback(async () => {
     if (!symbol) return;
+    if (runningRef.current) return;
+    runningRef.current = true;
     setIsRunning(true);
     setError(null);
     setRecord(null);
@@ -52,6 +56,7 @@ export function useFinancialAnalysis(symbol: string) {
       setError(err as AgentError);
     } finally {
       setIsRunning(false);
+      runningRef.current = false;
     }
   }, [symbol]);
 
@@ -70,7 +75,10 @@ export function useFinancialAnalysis(symbol: string) {
       }));
     } else {
       // Only run if no existing analysis found
-      analyze();
+      if (autoRunRef.current !== symbol) {
+        autoRunRef.current = symbol;
+        analyze();
+      }
     }
   }, [symbol, analyze]);
 
