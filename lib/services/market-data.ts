@@ -11,6 +11,44 @@ const ALPHA_VANTAGE_PREMIUM = process.env.ALPHA_VANTAGE_PREMIUM === "true";
 const BASE_URL = "https://finnhub.io/api/v1";
 const AV_BASE_URL = "https://www.alphavantage.co/query";
 
+// Known BIST stock symbols (common ones - can be extended)
+const KNOWN_BIST_SYMBOLS = new Set([
+  "THYAO", "GARAN", "ASELS", "KCHOL", "AKBNK", "EREGL", "SISE", "BIMAS",
+  "TUPRS", "SAHOL", "YKBNK", "HALKB", "VAKBN", "TCELL", "EKGYO", "PGSUS",
+  "TTKOM", "ENKAI", "KOZAL", "PETKM", "SASA", "TOASO", "FROTO", "ARCLK",
+  "VESTL", "DOHOL", "AEFES", "MGROS", "ULKER", "CCOLA", "TAVHL", "KOZAA",
+  "OYAKC", "ISCTR", "GUBRF", "SOKM", "KONTR", "AGHOL", "ARENA", "LOGO",
+  "MAVI", "NETAS", "INDES", "PAPIL", "DOAS", "OTKAR", "TMSN", "ALARK",
+]);
+
+// Symbol type detection
+function getSymbolType(symbol: string): "bist" | "crypto" | "us" {
+  const upper = symbol.toUpperCase();
+  if (upper.endsWith(".IS")) return "bist";
+  if (upper.endsWith("-USD") || upper.endsWith("USD")) return "crypto";
+  if (KNOWN_BIST_SYMBOLS.has(upper)) return "bist";
+  return "us";
+}
+
+// Normalize symbol for Yahoo Finance
+function normalizeForYahoo(symbol: string): string {
+  const upper = symbol.toUpperCase();
+  const type = getSymbolType(upper);
+
+  if (type === "bist" && !upper.endsWith(".IS")) {
+    return `${upper}.IS`;
+  }
+  return upper;
+}
+
+// Check if symbol is a BIST stock
+function isBistStock(symbol: string): boolean {
+  return getSymbolType(symbol) === "bist";
+}
+
+// Export for use in other modules
+export { normalizeForYahoo, getSymbolType, isBistStock };
+
 // Simple in-memory cache for news and history
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes
 const HISTORY_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
@@ -110,65 +148,124 @@ export class MarketDataService {
       .slice(0, 200);
   }
 
-  static async getPrice(symbol: string): Promise<{ 
-    price: number; 
+  static async getPrice(symbol: string): Promise<{
+    price: number;
     previousClose: number;
     change: number;
     changePercent: number;
-    historical: HistoricalPriceBar[] 
+    historical: HistoricalPriceBar[]
   }> {
-    // Get Quote from Finnhub (Fast, higher rate limit)
-    const quote = await fetchFinnhub("/quote", { symbol });
-    
-    // Get History from Alpha Vantage (Fallback for Finnhub 403)
+    const symbolType = getSymbolType(symbol);
+    const yahooSymbol = normalizeForYahoo(symbol);
+    const cacheKey = yahooSymbol.toUpperCase();
+
     let historical: HistoricalPriceBar[] = [];
-    
-    try {
-      // Try Alpha Vantage for history since Finnhub candles are restricted
-      const avSymbol = this.getAlphaVantageSymbol(symbol);
-      let avData = await fetchAlphaVantage({
-        function: "TIME_SERIES_DAILY",
-        symbol: avSymbol,
-        outputsize: "compact" // Free-tier (last 100 points)
-      });
+    let quote: { c?: number; pc?: number; d?: number; dp?: number } | null = null;
 
-      let finalSeries = avData?.["Time Series (Daily)"];
-      if (!finalSeries && (avData?.Note || avData?.Information)) {
-        console.warn("Alpha Vantage throttled or unavailable", {
-          note: avData?.Note,
-          info: avData?.Information,
-        });
+    // For BIST stocks, use Yahoo Finance as primary source (Finnhub doesn't support them)
+    if (symbolType === "bist") {
+      console.info(`[MarketData] BIST stock detected: ${symbol} -> ${yahooSymbol}`);
+      const yahooData = await this.fetchYahooData(yahooSymbol, cacheKey);
+      historical = yahooData.historical;
+      if (yahooData.price) {
+        quote = {
+          c: yahooData.price,
+          pc: yahooData.previousClose,
+          d: yahooData.change,
+          dp: yahooData.changePercent,
+        };
+      }
+    } else {
+      // For US stocks and crypto, try Finnhub first for quotes
+      try {
+        quote = await fetchFinnhub("/quote", { symbol });
+      } catch (e) {
+        console.warn("Finnhub quote failed, will use fallback", e);
       }
 
-      if (!finalSeries && ALPHA_VANTAGE_PREMIUM) {
-        avData = await fetchAlphaVantage({
-          function: "TIME_SERIES_DAILY",
-          symbol: avSymbol,
-          outputsize: "full" // Premium only
-        });
-        finalSeries = avData?.["Time Series (Daily)"];
-      }
-
-      if (finalSeries) {
-        historical = Object.entries(finalSeries)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map(([date, values]: [string, any]) => ({
-            date: date,
-            open: parseFloat(values["1. open"]),
-            high: parseFloat(values["2. high"]),
-            low: parseFloat(values["3. low"]),
-            close: parseFloat(values["4. close"]),
-            volume: parseFloat(values["5. volume"])
-          }))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Newest first
-          .slice(0, 200); // Keep last 200 days for analysis
-      }
-    } catch (e) {
-      console.error("Failed to fetch history from Alpha Vantage", e);
+      // Get historical data from Alpha Vantage or fallbacks
+      historical = await this.fetchHistoricalData(symbol, symbolType);
     }
 
-    // Alpha Vantage crypto fallback (DIGITAL_CURRENCY_DAILY)
-    if (!historical.length) {
+    // Final fallback to Yahoo for non-BIST stocks (BIST already uses Yahoo as primary)
+    if (symbolType !== "bist" && historical.length < 20) {
+      console.info(`[MarketData] Insufficient history (${historical.length}), trying Yahoo Finance for ${yahooSymbol}`);
+      const yahooData = await this.fetchYahooData(yahooSymbol, cacheKey);
+      if (yahooData.historical.length > historical.length) {
+        historical = yahooData.historical;
+      }
+      // Use Yahoo quote if Finnhub quote is empty
+      if (!quote?.c && yahooData.price) {
+        quote = {
+          c: yahooData.price,
+          pc: yahooData.previousClose,
+          d: yahooData.change,
+          dp: yahooData.changePercent,
+        };
+      }
+    }
+
+    const lastClose = historical[0]?.close ?? 0;
+    const price = quote?.c || lastClose || 0;
+    const previousClose = quote?.pc || historical[1]?.close || 0;
+    const change = quote?.d || (price && previousClose ? price - previousClose : 0);
+    const changePercent = quote?.dp || (previousClose ? (change / previousClose) * 100 : 0);
+
+    console.info(`[MarketData] Result for ${symbol}: price=${price}, historyPoints=${historical.length}`);
+    return { price, previousClose, change, changePercent, historical };
+  }
+
+  private static async fetchHistoricalData(
+    symbol: string,
+    symbolType: "bist" | "crypto" | "us"
+  ): Promise<HistoricalPriceBar[]> {
+    let historical: HistoricalPriceBar[] = [];
+
+    // Try Alpha Vantage first for US stocks
+    if (symbolType === "us") {
+      try {
+        const avSymbol = this.getAlphaVantageSymbol(symbol);
+        let avData = await fetchAlphaVantage({
+          function: "TIME_SERIES_DAILY",
+          symbol: avSymbol,
+          outputsize: "compact"
+        });
+
+        let finalSeries = avData?.["Time Series (Daily)"];
+        if (!finalSeries && (avData?.Note || avData?.Information)) {
+          console.warn("Alpha Vantage throttled or unavailable");
+        }
+
+        if (!finalSeries && ALPHA_VANTAGE_PREMIUM) {
+          avData = await fetchAlphaVantage({
+            function: "TIME_SERIES_DAILY",
+            symbol: avSymbol,
+            outputsize: "full"
+          });
+          finalSeries = avData?.["Time Series (Daily)"];
+        }
+
+        if (finalSeries) {
+          historical = Object.entries(finalSeries)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map(([date, values]: [string, any]) => ({
+              date,
+              open: parseFloat(values["1. open"]),
+              high: parseFloat(values["2. high"]),
+              low: parseFloat(values["3. low"]),
+              close: parseFloat(values["4. close"]),
+              volume: parseFloat(values["5. volume"])
+            }))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 200);
+        }
+      } catch (e) {
+        console.error("Failed to fetch history from Alpha Vantage", e);
+      }
+    }
+
+    // Try Alpha Vantage crypto endpoint
+    if (symbolType === "crypto" && historical.length < 20) {
       try {
         historical = await this.fetchAlphaVantageCrypto(symbol);
       } catch (e) {
@@ -176,8 +273,8 @@ export class MarketDataService {
       }
     }
 
-    // Finnhub candle fallback (if available)
-    if (historical.length < 20) {
+    // Try Finnhub candles for US stocks
+    if (symbolType === "us" && historical.length < 20) {
       try {
         const to = Math.floor(Date.now() / 1000);
         const from = Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1000) / 1000);
@@ -199,7 +296,8 @@ export class MarketDataService {
               volume: candles.v?.[idx] ?? 0,
             }))
             .filter((bar: HistoricalPriceBar) => bar.close)
-            .sort((a: HistoricalPriceBar, b: HistoricalPriceBar) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .sort((a: HistoricalPriceBar, b: HistoricalPriceBar) =>
+              new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 200);
 
           if (mapped.length > historical.length) {
@@ -211,150 +309,221 @@ export class MarketDataService {
       }
     }
 
-    // Yahoo Finance fallback for history (supports stocks, BIST, crypto)
-    if (historical.length < 20) {
+    return historical;
+  }
+
+  private static async fetchYahooData(
+    yahooSymbol: string,
+    cacheKey: string
+  ): Promise<{
+    historical: HistoricalPriceBar[];
+    price?: number;
+    previousClose?: number;
+    change?: number;
+    changePercent?: number;
+  }> {
+    const now = Date.now();
+    const symbolCooldownUntil = yahooCooldownBySymbol.get(cacheKey) ?? 0;
+
+    // Check cooldown
+    if (now < yahooGlobalCooldownUntil || now < symbolCooldownUntil) {
+      const cachedHistory = historyCache.get(cacheKey);
+      if (cachedHistory && now < cachedHistory.expiresAt) {
+        return { historical: cachedHistory.data };
+      }
+      return { historical: [] };
+    }
+
+    // Check cache
+    const cachedHistory = historyCache.get(cacheKey);
+    if (cachedHistory && now < cachedHistory.expiresAt) {
+      return { historical: cachedHistory.data };
+    }
+
+    const period2 = new Date();
+    const period1 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const cacheKey = symbol.toUpperCase();
-        const now = Date.now();
-        const symbolCooldownUntil = yahooCooldownBySymbol.get(cacheKey) ?? 0;
-        if (now < yahooGlobalCooldownUntil || now < symbolCooldownUntil) {
-          const cachedHistory = historyCache.get(cacheKey);
-          if (cachedHistory && now < cachedHistory.expiresAt) {
-            if (cachedHistory.data.length > historical.length) {
-              historical = cachedHistory.data;
-            }
-          }
-        } else {
-        const cachedHistory = historyCache.get(cacheKey);
-        if (cachedHistory && Date.now() < cachedHistory.expiresAt) {
-          if (cachedHistory.data.length > historical.length) {
-            historical = cachedHistory.data;
-          }
-        } else {
-          const period2 = new Date();
-          const period1 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+        const yfChart = await yahooFinance.chart(yahooSymbol, {
+          period1,
+          period2,
+          interval: "1d",
+          return: "array",
+        });
 
-          let lastError: unknown = null;
-          for (let attempt = 0; attempt < 2; attempt += 1) {
-            try {
-              const yfChart = await yahooFinance.chart(symbol, {
-                period1,
-                period2,
-                interval: "1d",
-                return: "array",
-              });
+        const quotes = yfChart?.quotes ?? [];
+        const mapped = quotes
+          .filter((bar) => bar.close != null)
+          .map((bar) => ({
+            date: bar.date.toISOString().split("T")[0],
+            open: bar.open ?? bar.close ?? 0,
+            high: bar.high ?? bar.close ?? 0,
+            low: bar.low ?? bar.close ?? 0,
+            close: bar.close ?? 0,
+            volume: bar.volume ?? 0,
+          }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 200);
 
-              const mapped = (yfChart?.quotes ?? [])
-                .filter((bar) => bar.close != null)
-                .map((bar) => ({
-                  date: bar.date.toISOString().split("T")[0],
-                  open: bar.open ?? bar.close ?? 0,
-                  high: bar.high ?? bar.close ?? 0,
-                  low: bar.low ?? bar.close ?? 0,
-                  close: bar.close ?? 0,
-                  volume: bar.volume ?? 0,
-                }))
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 200);
+        historyCache.set(cacheKey, {
+          expiresAt: Date.now() + HISTORY_CACHE_TTL_MS,
+          data: mapped,
+        });
 
-              historyCache.set(cacheKey, {
-                expiresAt: Date.now() + HISTORY_CACHE_TTL_MS,
-                data: mapped,
-              });
+        // Extract current price from meta or last quote
+        const meta = yfChart?.meta;
+        const lastQuote = quotes[quotes.length - 1];
+        const price = meta?.regularMarketPrice ?? lastQuote?.close ?? undefined;
+        const previousClose = meta?.previousClose ?? (quotes.length > 1 ? quotes[quotes.length - 2]?.close : undefined) ?? undefined;
 
-              if (mapped.length > historical.length) {
-                historical = mapped;
-              }
-              lastError = null;
-              break;
-            } catch (e) {
-              lastError = e;
-              const err = e as { statusCode?: number };
-              if (err?.statusCode === 429 && attempt === 0) {
-                const cooldownUntil = Date.now() + YAHOO_COOLDOWN_MS;
-                yahooCooldownBySymbol.set(cacheKey, cooldownUntil);
-                yahooGlobalCooldownUntil = cooldownUntil;
-                historyCache.set(cacheKey, {
-                  expiresAt: Date.now() + 1000 * 15,
-                  data: [],
-                });
-                await sleep(1250);
-                continue;
-              }
-              break;
-            }
-          }
-
-          if (lastError) {
-            console.error("Failed to fetch history from Yahoo Finance", lastError);
-          }
-        }
-        }
+        return {
+          historical: mapped,
+          price: price ?? undefined,
+          previousClose: previousClose ?? undefined,
+          change: price && previousClose ? price - previousClose : undefined,
+          changePercent: price && previousClose ? ((price - previousClose) / previousClose) * 100 : undefined,
+        };
       } catch (e) {
-        console.error("Failed to fetch history from Yahoo Finance", e);
+        const err = e as { statusCode?: number; message?: string };
+        const isRateLimited = err?.statusCode === 429 ||
+          err?.message?.includes("Too Many Requests") ||
+          err?.message?.includes("429");
+
+        console.error(`Yahoo Finance error for ${yahooSymbol}:`, err.message, isRateLimited ? "(rate limited)" : "");
+
+        if (isRateLimited) {
+          const cooldownUntil = Date.now() + YAHOO_COOLDOWN_MS;
+          yahooCooldownBySymbol.set(cacheKey, cooldownUntil);
+          yahooGlobalCooldownUntil = cooldownUntil;
+
+          if (attempt === 0) {
+            await sleep(1250);
+            continue;
+          }
+        }
+        break;
       }
     }
 
-    const lastClose = historical[0]?.close ?? 0;
-    const price = quote?.c || lastClose || 0;
-    const previousClose = quote?.pc || historical[1]?.close || 0;
-    const change = quote?.d || (price && previousClose ? price - previousClose : 0);
-    const changePercent = quote?.dp || (previousClose ? (change / previousClose) * 100 : 0);
-
-    return { price, previousClose, change, changePercent, historical };
+    return { historical: [] };
   }
 
   static async getFundamentals(symbol: string): Promise<FundamentalsSnapshot> {
-    const [profile, metrics] = await Promise.all([
-      fetchFinnhub("/stock/profile2", { symbol }),
-      fetchFinnhub("/stock/metric", { symbol, metric: "all" })
-    ]);
+    const symbolType = getSymbolType(symbol);
+    const yahooSymbol = normalizeForYahoo(symbol);
 
-    const m = metrics?.metric || {};
-    const p = profile || {};
+    // For BIST stocks, use Yahoo Finance for fundamentals
+    if (symbolType === "bist") {
+      return this.fetchYahooFundamentals(yahooSymbol);
+    }
 
-    return {
-      marketCap: p.marketCapitalization ? p.marketCapitalization * 1000000 : undefined,
-      peRatio: m.peBasicExclExtraTTM,
-      eps: m.epsExclExtraTTM,
-      pbRatio: m.pbAnnual,
-      dividendYield: m.dividendYieldIndicatedAnnual ? m.dividendYieldIndicatedAnnual / 100 : undefined,
-      revenuePerShare: m.revenuePerShareTTM,
-      profitMargin: m.netProfitMarginTTM ? m.netProfitMarginTTM / 100 : undefined,
-      sector: p.finnhubIndustry,
-      roe: m.roeTTM ? m.roeTTM / 100 : undefined,
-      debtToEquity: m.totalDebtToEquityAnnual ? m.totalDebtToEquityAnnual / 100 : undefined,
-      beta: m.beta,
-    };
+    // For US stocks, try Finnhub first
+    try {
+      const [profile, metrics] = await Promise.all([
+        fetchFinnhub("/stock/profile2", { symbol }),
+        fetchFinnhub("/stock/metric", { symbol, metric: "all" })
+      ]);
+
+      const m = metrics?.metric || {};
+      const p = profile || {};
+
+      const fundamentals: FundamentalsSnapshot = {
+        marketCap: p.marketCapitalization ? p.marketCapitalization * 1000000 : undefined,
+        peRatio: m.peBasicExclExtraTTM,
+        eps: m.epsExclExtraTTM,
+        pbRatio: m.pbAnnual,
+        dividendYield: m.dividendYieldIndicatedAnnual ? m.dividendYieldIndicatedAnnual / 100 : undefined,
+        revenuePerShare: m.revenuePerShareTTM,
+        profitMargin: m.netProfitMarginTTM ? m.netProfitMarginTTM / 100 : undefined,
+        sector: p.finnhubIndustry,
+        roe: m.roeTTM ? m.roeTTM / 100 : undefined,
+        debtToEquity: m.totalDebtToEquityAnnual ? m.totalDebtToEquityAnnual / 100 : undefined,
+        beta: m.beta,
+      };
+
+      // If Finnhub returned no data, try Yahoo
+      const hasData = Object.values(fundamentals).some(v => v !== undefined);
+      if (!hasData) {
+        return this.fetchYahooFundamentals(yahooSymbol);
+      }
+
+      return fundamentals;
+    } catch (e) {
+      console.warn("Finnhub fundamentals failed, trying Yahoo", e);
+      return this.fetchYahooFundamentals(yahooSymbol);
+    }
+  }
+
+  private static async fetchYahooFundamentals(yahooSymbol: string): Promise<FundamentalsSnapshot> {
+    try {
+      const quote = await yahooFinance.quote(yahooSymbol);
+
+      return {
+        marketCap: quote.marketCap ?? undefined,
+        peRatio: quote.trailingPE ?? undefined,
+        eps: quote.epsTrailingTwelveMonths ?? undefined,
+        pbRatio: quote.priceToBook ?? undefined,
+        dividendYield: quote.dividendYield ?? undefined,
+        sector: quote.sector ?? undefined,
+        beta: quote.beta ?? undefined,
+      };
+    } catch (e) {
+      console.error("Yahoo Finance fundamentals failed", e);
+      return {};
+    }
   }
 
   static async getNews(symbol: string): Promise<NewsHeadline[]> {
+    const symbolType = getSymbolType(symbol);
+    const yahooSymbol = normalizeForYahoo(symbol);
+    const cacheKey = yahooSymbol.toUpperCase();
+
     // Check cache
-    const cached = newsCache.get(symbol);
+    const cached = newsCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return cached.data;
     }
 
-    // Last 7 days
-    const to = new Date().toISOString().split('T')[0];
-    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    let headlines: NewsHeadline[] = [];
 
-    const result = await fetchFinnhub("/company-news", { 
-      symbol, 
-      from, 
-      to 
-    });
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const headlines: NewsHeadline[] = (result || []).slice(0, 10).map((n: any) => ({
-      title: n.headline,
-      source: n.source,
-      publishedAt: new Date(n.datetime * 1000).toISOString(),
-      url: n.url,
-    }));
+    // For BIST stocks, skip Finnhub (doesn't support them)
+    if (symbolType !== "bist") {
+      try {
+        const to = new Date().toISOString().split('T')[0];
+        const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const result = await fetchFinnhub("/company-news", {
+          symbol,
+          from,
+          to
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        headlines = (result || []).slice(0, 10).map((n: any) => ({
+          title: n.headline,
+          source: n.source,
+          publishedAt: new Date(n.datetime * 1000).toISOString(),
+          url: n.url,
+        }));
+      } catch (e) {
+        console.warn("Finnhub news failed", e);
+      }
+    }
+
+    // Fallback to Yahoo for news if Finnhub returned nothing
+    if (headlines.length === 0) {
+      try {
+        // Yahoo Finance doesn't have a direct news API in yahoo-finance2,
+        // but we can use search to get some context
+        console.info(`[MarketData] No Finnhub news for ${symbol}, news will be limited`);
+      } catch (e) {
+        console.warn("Yahoo news fallback failed", e);
+      }
+    }
 
     // Update cache
-    newsCache.set(symbol, {
+    newsCache.set(cacheKey, {
       expiresAt: Date.now() + CACHE_TTL_MS,
       data: headlines,
     });
