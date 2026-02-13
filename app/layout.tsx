@@ -22,6 +22,34 @@ export const metadata: Metadata = {
   title: "MyMarketMind | Multi-Agent Investment Intelligence",
   description:
     "MarketMind orchestrates market data, technical and fundamental AI agents, sentiment, and risk for decisive investment calls.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "MyMarketMind | Multi-Agent Investment Intelligence",
+    description:
+      "MarketMind orchestrates market data, technical and fundamental AI agents, sentiment, and risk for decisive investment calls.",
+    url: "https://mymarketmind.net",
+    siteName: "MyMarketMind",
+    images: [
+      {
+        url: "https://mymarketmind.net/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "MyMarketMind - AI-Powered Investment Intelligence Dashboard",
+      },
+    ],
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MyMarketMind | Multi-Agent Investment Intelligence",
+    description:
+      "MarketMind orchestrates market data, technical and fundamental AI agents, sentiment, and risk for decisive investment calls.",
+    images: ["https://mymarketmind.net/og-image.png"],
+  },
 };
 
 export default function RootLayout({
